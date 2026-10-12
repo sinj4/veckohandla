@@ -86,6 +86,28 @@ def filtrera_kategorier(offers: list[Offer], uteslut: list[str]) -> list[Offer]:
     return [o for o in offers if o.category.split("|")[0].strip().lower() not in bort]
 
 
+def tillampa_ica_troskel(lines: list[Line], threshold: float) -> tuple[dict[str, list[Line]], dict[str, float]]:
+    """Behåll en ICA-butikslista bara om besöket sparar minst `threshold` kr.
+
+    Under tröskeln flyttas rader med Willys-alternativ tillbaka till Willys (l.ica = None);
+    bara rader utan Willys-alternativ blir kvar på ICA-listan. Ändrar `lines` på plats.
+    """
+    ica_lists: dict[str, list[Line]] = {}
+    ica_savings: dict[str, float] = {}
+    for store in sorted({l.ica.ica_butik for l in lines if l.buy_at_ica}):
+        store_lines = [l for l in lines if l.buy_at_ica and l.ica.ica_butik == store]
+        saving = sum((l.willys_cost or 0) - l.ica.ica_kostnad_kr for l in store_lines if l.willys_cost)
+        if saving < threshold:
+            for l in store_lines:
+                if l.product:
+                    l.ica = None
+            store_lines = [l for l in store_lines if l.product is None]
+        if store_lines:
+            ica_lists[store] = store_lines
+            ica_savings[store] = round(saving if saving >= threshold else 0.0, 2)
+    return ica_lists, ica_savings
+
+
 def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offer]:
     """Willys-fel stoppar körningen; en ICA-butik som fallerar hoppas över med en varning."""
     stores = cfg["butiker"]
@@ -163,19 +185,7 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     threshold = cfg["optimering"]["min_besparing_for_delning_kr"]
     result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar,
                     willys_namn=willys_name)
-    stores = {l.ica.ica_butik for l in lines if l.buy_at_ica}
-    for store in stores:
-        store_lines = [l for l in lines if l.buy_at_ica and l.ica.ica_butik == store]
-        saving = sum((l.willys_cost or 0) - l.ica.ica_kostnad_kr for l in store_lines if l.willys_cost)
-        if saving < threshold:
-            # Inte värt ett extra besök: rader med Willys-alternativ flyttas tillbaka till Willys
-            for l in store_lines:
-                if l.product:
-                    l.ica = None
-            store_lines = [l for l in store_lines if l.product is None]
-        if store_lines:
-            result.ica_lists[store] = store_lines
-            result.ica_savings[store] = round(saving if saving >= threshold else 0.0, 2)
+    result.ica_lists, result.ica_savings = tillampa_ica_troskel(lines, threshold)
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
     willys_lines = [l for l in lines if l.product and not l.buy_at_ica and not l.row.kanske_hemma]

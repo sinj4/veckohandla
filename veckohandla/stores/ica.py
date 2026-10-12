@@ -32,7 +32,7 @@ def _js_object(html: str, marker: str) -> dict:
         raise ValueError(f"Hittade inte {marker!r} – har ICA ändrat sidan?")
     body = html[start + len(marker):]
     body = body[: body.find("</script>")].strip().rstrip(";")
-    body = re.sub(r"(?<=[:\[,])undefined(?=[,\]}])", "null", body)
+    body = re.sub(r"(?<=[:\[,])(\s*)undefined(?=\s*[,\]}])", r"\1null", body)
     body = re.sub(r"new Map\(\[\]\)", "null", body)
     obj, _ = json.JSONDecoder().raw_decode(body)
     return obj
