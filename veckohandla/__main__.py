@@ -95,11 +95,7 @@ def main() -> int:
     from . import pipeline, report
     from .pipeline import run
 
-    try:
-        res = run(cfg, fill_cart=args.fyll_varukorg)
-    except NotLoggedIn as e:
-        print(e, file=sys.stderr)
-        return 2
+    res = run(cfg, fill_cart=args.fyll_varukorg)
 
     page = report.render(res)
     out = pipeline.DATA / f"{res.week}.html"
@@ -114,6 +110,9 @@ def main() -> int:
         else:
             report.send(cfg, f"Veckomeny {res.week}", page, pw)
             print(f"Mejl skickat till {cfg['epost']['till']}")
+    if res.cart_error:
+        print(res.cart_error, file=sys.stderr)
+        return 2  # syns i loggen att korgen inte fylldes
     return 0
 
 

@@ -44,6 +44,7 @@ class Result:
     ica_total: float = 0.0
     ica_savings: dict[str, float] = field(default_factory=dict)
     cart: dict | None = None
+    cart_error: str | None = None  # t.ex. att Willys-inloggningen gått ut
     offers_count: dict[str, int] = field(default_factory=dict)
 
 
@@ -153,7 +154,17 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     (DATA / f"{result.week}-korg.json").write_text(json.dumps(cart_lines, ensure_ascii=False, indent=2))
 
     if fill_cart:
-        result.cart = fill_saved_cart(result.week, log)
+        from .cart import NotLoggedIn
+
+        try:
+            result.cart = fill_saved_cart(result.week, log)
+        except NotLoggedIn as e:
+            # Rapporten och mejlet ska ändå komma fram – korgen kan fyllas i efterhand
+            log(str(e))
+            result.cart_error = (
+                "Willys-inloggningen har gått ut. Kör `python -m veckohandla login` och sedan "
+                f"`python -m veckohandla fyll-varukorg {result.week}`."
+            )
     return result
 
 

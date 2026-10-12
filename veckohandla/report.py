@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import re
 import smtplib
 from email.message import EmailMessage
 
@@ -11,6 +12,11 @@ from .pipeline import Result
 
 def _kr(x: float | None) -> str:
     return "–" if x is None else f"{x:,.2f} kr".replace(",", " ").replace(".", ",")
+
+
+def _code(text: str) -> str:
+    """`kommando` -> <code>kommando</code> (texten är redan HTML-escapad)."""
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
 
 
 def render(res: Result) -> str:
@@ -23,6 +29,12 @@ def render(res: Result) -> str:
         + ", ".join(f"{e(k)} {v}" for k, v in res.offers_count.items())
         + "</p>",
     ]
+
+    if res.cart_error:
+        parts.append(
+            "<p style='background:#fdecea;border:1px solid #e0a39c;padding:12px;border-radius:8px'>"
+            f"⚠️ <b>Varukorgen fylldes inte.</b> {_code(e(res.cart_error))}</p>"
+        )
 
     if res.cart is not None:
         missing = res.cart.get("missing") or []
