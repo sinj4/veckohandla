@@ -1,0 +1,66 @@
+# Veckohandla – inställningar
+# Kopiera till config.yaml och anpassa: cp config.example.yaml config.yaml
+
+hushall:
+  vuxna: 2
+  barn: [9, 7]          # åldrar
+  middagar_per_vecka: 5
+  portioner_per_middag: 4
+  # Fritext som skickas till menyplaneraren
+  preferenser: >
+    Barnvänlig vardagsmat, max ca 40 min tillagning på vardagar.
+    Gärna variation: fisk minst en gång, vegetariskt minst en gång.
+    Undvik väldigt stark mat.
+  # Hårda krav – gäller både menyn och varje vald produkt, t.ex.:
+  #   - fläsk/griskött i alla former (även korv, falukorv, blandfärs, bacon, skinka)
+  #   - nötter
+  undvik: []
+  # Spärrfilter i koden: produkter vars namn innehåller något av orden tas bort innan Claude
+  # ser dem – ett skyddsnät för hårda krav. Exempel för fläskfritt:
+  #   [fläsk, gris, bacon, skinka, korv, salami, chorizo, karré, kassler, isterband, blandfärs]
+  sparrord: []
+
+# Basvaror som alltid finns hemma – köps inte
+skafferi:
+  - salt
+  - svartpeppar
+  - olivolja
+  - rapsolja
+  - smör
+  - vetemjöl
+  - socker
+  - buljongtärningar
+  - soja
+  - torkade kryddor
+
+# Varor som läggs till i varukorgen varje vecka oavsett meny
+alltid_kop:
+  - {namn: "mellanmjölk 1,5 l", antal: 2}
+  - {namn: "matbröd", antal: 1}
+  - {namn: "bananer", antal: 8}
+
+butiker:
+  willys:
+    namn: Willys Vagnhärad Lånesta
+    store_id: "2341"      # e-handelsbutiken – hitta din: python -m veckohandla hitta-willys <ort>
+  # ICA-butiker används för kampanjjämförelse; billigare ICA-varor blir en butikslista.
+  # Slug = sista delen av butikens erbjudandesida, t.ex. https://www.ica.se/erbjudanden/<slug>/
+  ica:
+    - namn: ICA Kvantum Trossen
+      erbjudande_slug: ica-kvantum-trossen-16622
+    - namn: ICA Supermarket Vagnhärad
+      erbjudande_slug: ica-supermarket-vagnharad-1004281
+
+optimering:
+  # Föreslå ett ICA-besök bara om det sparar minst så här mycket per butik
+  min_besparing_for_delning_kr: 75
+
+epost:
+  till: du@example.com
+  fran: du@example.com
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  # Lösenord läses från miljövariabeln SMTP_PASSWORD (Gmail: app-lösenord)
+
+claude:
+  model: claude-opus-5-5
