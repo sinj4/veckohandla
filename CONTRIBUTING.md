@@ -4,11 +4,19 @@ Kul att du vill hjälpa till! Issues och pull requests får skrivas på svenska 
 
 ## Utvecklingsmiljö
 ```sh
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/python -m playwright install chromium
 cp config.example.yaml config.yaml
 .venv/bin/python -m veckohandla erbjudanden    # snabbt test, kräver varken Claude eller inloggning
 ```
+
+## Innan du skickar en PR
+Kör testerna. De gör inga nätverksanrop och tar några sekunder:
+```sh
+.venv/bin/python -m pytest
+```
+Lägg till ett test för ny logik. Behöver testet ett API-svar, spara ett trimmat riktigt svar i
+`tests/fixtures/` och kontrollera att inget personligt följer med.
 
 ## Riktlinjer
 - **Ingen kringgång av skydd.** Om en butik blockerar automatisering (bot-spärrar, CAPTCHA, WAF) respekterar vi det. PR:er som försöker ta sig förbi sådana spärrar tas inte emot.

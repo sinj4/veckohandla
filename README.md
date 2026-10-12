@@ -12,8 +12,9 @@ Varje vecka:
 2. **Planerar middagar** med Claude utifrån kampanjerna och ditt hushåll: antal personer, barnens åldrar, önskemål och sådant som ska undvikas. Rätter från de senaste veckorna upprepas inte.
 3. **Matchar varje ingrediens** mot Willys sortiment och väljer billigaste rimliga vara. Den tar hänsyn till "2 för"-kampanjer, "max 1 köp/hushåll" och lösvikt.
 4. **Jämför med ICA-kampanjer.** Sparar ett ICA-besök tillräckligt blir de varorna en separat butikslista.
-5. **Fyller Willys-varukorgen.** Boten lägger **aldrig** någon order, det gör du själv efter att ha granskat korgen.
-6. **Skickar en rapport** med meny, recept, varukorg och prisuppgifter, via mejl och som HTML-fil.
+5. **Kontrollerar ingredienser** för valda varor mot dina spärrord, till exempel fläsk i färdiga köttbullar.
+6. **Fyller Willys-varukorgen.** Boten lägger bara till det som fattas och tar aldrig bort något. Den lägger **aldrig** någon order, det gör du själv efter att ha granskat korgen.
+7. **Skickar en rapport** med meny, recept, varukorg och prisuppgifter, via mejl och som HTML-fil. Går något fel kommer ett felmejl i stället.
 
 ## Kom igång
 
@@ -39,9 +40,17 @@ cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 
 Du kan också planera och fylla korgen i ett steg med `kor --fyll-varukorg`.
 
+`fyll-varukorg` går att köra flera gånger. Boten läser först korgen och lägger bara till det som fattas, så du får inga dubbla mängder och inget tas bort. Har Willys-inloggningen gått ut kommer rapporten och mejlet ändå, med instruktioner om att köra `login` och sedan `fyll-varukorg <vecka>`.
+
 ### Schemaläggning (macOS)
 ```sh
-./schema/installera.sh    # körs måndagar 06:30
+./schema/installera.sh     # körs måndagar 06:30
+./schema/avinstallera.sh   # tar bort schemat igen
+```
+Testa schemat direkt, utan att vänta till måndag. Det kör `kor --fyll-varukorg` på riktigt, alltså Claude, varukorg och mejl:
+```sh
+launchctl kickstart -k gui/$(id -u)/se.veckohandla
+tail -f data/senaste-korning.log     # varje körning börjar med en rad med datum och tid
 ```
 På Linux fungerar en cron-rad som kör `.venv/bin/python -m veckohandla kor --fyll-varukorg` från projektkatalogen.
 
@@ -53,7 +62,10 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`sparrord`**: ett skyddsnät i koden. Produkter vars namn innehåller något av orden tas bort innan Claude ser dem.
 - **`skafferi`**: varor som alltid finns hemma och därför aldrig köps.
 - **`alltid_kop`**: basvaror som läggs i korgen varje vecka.
-- **`min_besparing_for_delning_kr`**: hur mycket ett extra ICA-besök minst måste spara.
+- **`sparrord_ingredienser`**: ord som bara jämförs mot ingredienslistan för valda produkter. Det fångar till exempel köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Även `sparrord` jämförs mot ingredienserna. En vara som matchar tas bort ur korgen och märks "köp manuellt". Kött, chark och färdigmat utan ingrediensuppgift märks "Kontrollera ingredienser".
+- **`min_besparing_for_delning_kr`**: hur mycket ett extra ICA-besök minst måste spara. Under gränsen köps allt som finns på Willys där.
+- **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
+- **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
 
 ## Hur det fungerar
 
@@ -71,8 +83,17 @@ veckohandla/
   planner.py         Claude-anrop (meny + produktval) med strikta JSON-scheman
   pipeline.py        hela veckoflödet
   cart.py            fyller Willys-varukorgen
+  ingredienser.py    ingredienskontroll mot spärrorden
   report.py          HTML-rapport och mejl
+tests/               pytest med fixturer, utan nätverk
 ```
+
+## Tester
+```sh
+.venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest
+```
+Testerna använder fixturer i `tests/fixtures/` och blockerar alla nätverksanrop.
 
 ## Begränsningar och ansvar
 
@@ -86,7 +107,6 @@ veckohandla/
 Bidrag är välkomna! Se [CONTRIBUTING.md](CONTRIBUTING.md). Idéer:
 - Fler kedjor: Coop, Hemköp (Axfood, troligen samma API som Willys), Lidl.
 - Bättre mängdberäkning mellan recept och förpackningar.
-- Tester med inspelade API-svar.
 - Matpreferenser per veckodag och historik över vad familjen gillade.
 
 ## Licens
