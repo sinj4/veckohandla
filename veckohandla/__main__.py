@@ -95,7 +95,9 @@ def main() -> int:
         except NotLoggedIn as e:
             print(e, file=sys.stderr)
             return 2
-        print(f"Willys-korgen totalt: {res['total']}")
+        print(f"Lade till {res['tillagda']} varor, {res['redan_klara']} fanns redan. Willys-korgen totalt: {res['total']}")
+        if res["annan_enhet"]:
+            print(f"Finns redan i annan enhet (rörs inte): {', '.join(res['annan_enhet'])}")
         if res["missing"]:
             print(f"Kom inte med: {', '.join(res['missing'])}")
         return 0
