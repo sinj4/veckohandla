@@ -12,6 +12,7 @@ import re
 import httpx
 
 from ..models import Offer
+from .http import med_omforsok
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128 Safari/537.36",
@@ -20,8 +21,7 @@ HEADERS = {
 
 
 def _get(url: str) -> str:
-    r = httpx.get(url, headers=HEADERS, timeout=30, follow_redirects=True)
-    r.raise_for_status()
+    r = med_omforsok(lambda: httpx.get(url, headers=HEADERS, timeout=30, follow_redirects=True))
     return r.text
 
 

@@ -30,6 +30,12 @@ def render(res: Result) -> str:
         + "</p>",
     ]
 
+    for v in res.varningar:
+        parts.append(
+            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:10px;border-radius:8px;font-size:14px'>"
+            f"⚠️ {e(v)}</p>"
+        )
+
     if res.cart_error:
         parts.append(
             "<p style='background:#fdecea;border:1px solid #e0a39c;padding:12px;border-radius:8px'>"

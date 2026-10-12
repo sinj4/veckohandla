@@ -10,8 +10,10 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import os
 import sys
+import traceback
 from pathlib import Path
 
 import yaml
@@ -62,8 +64,11 @@ def main() -> int:
     if args.cmd == "erbjudanden":
         from .pipeline import fetch_all_offers
 
-        for o in fetch_all_offers(cfg):
+        varningar: list[str] = []
+        for o in fetch_all_offers(cfg, varningar):
             print(f"{o.store:28} {o.short()}")
+        for v in varningar:
+            print(f"VARNING: {v}", file=sys.stderr)
         return 0
 
     if args.cmd == "login":
@@ -73,6 +78,9 @@ def main() -> int:
         return 0
 
     from .cart import NotLoggedIn
+
+    # launchd lägger till i loggfilen – en startrad visar var varje körning börjar
+    print(f"\n=== veckohandla {args.cmd} startar {dt.datetime.now():%Y-%m-%d %H:%M:%S} ===", flush=True)
 
     if args.cmd == "fyll-varukorg":
         from .pipeline import IngenKorg, fill_saved_cart, latest_cart_week
@@ -92,6 +100,35 @@ def main() -> int:
             print(f"Kom inte med: {', '.join(res['missing'])}")
         return 0
 
+    try:
+        return kor(cfg, args)
+    except Exception:
+        tb = traceback.format_exc()
+        print(tb, file=sys.stderr, flush=True)
+        if not args.ingen_mejl:
+            _felmejl(cfg, tb)
+        return 1
+
+
+def _felmejl(cfg: dict, tb: str) -> None:
+    """Skicka ett kort felmejl. Fel här får inte dölja det ursprungliga felet."""
+    pw = os.environ.get("SMTP_PASSWORD")
+    if not pw:
+        return
+    try:
+        import html
+
+        from . import report
+        from .pipeline import week_id
+
+        sista = "\n".join(tb.rstrip().splitlines()[-30:])
+        body = f"<html><body><p>Veckohandla misslyckades.</p><pre>{html.escape(sista)}</pre></body></html>"
+        report.send(cfg, f"Veckohandla misslyckades {week_id()}", body, pw)
+    except Exception as e:
+        print(f"(Kunde inte heller skicka felmejl: {e})", file=sys.stderr)
+
+
+def kor(cfg: dict, args) -> int:
     from . import pipeline, report
     from .pipeline import run
 

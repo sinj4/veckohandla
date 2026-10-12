@@ -7,6 +7,7 @@ import re
 import httpx
 
 from ..models import Offer, Product, parse_promo_max
+from .http import med_omforsok
 
 BASE = "https://www.willys.se"
 HEADERS = {
@@ -21,8 +22,7 @@ def _client() -> httpx.Client:
 
 def find_stores(query: str) -> list[dict]:
     with _client() as c:
-        r = c.get("/axfood/rest/search/store", params={"q": query, "online": "false"})
-        r.raise_for_status()
+        r = med_omforsok(lambda: c.get("/axfood/rest/search/store", params={"q": query, "online": "false"}))
         return r.json().get("results") or []
 
 
@@ -32,11 +32,8 @@ def fetch_offers(store_id: str, store_name: str) -> list[Offer]:
     with _client() as c:
         page = 0
         while True:
-            r = c.get(
-                "/search/campaigns/online",
-                params={"q": store_id, "type": "PERSONAL_GENERAL", "page": page, "size": 100},
-            )
-            r.raise_for_status()
+            params = {"q": store_id, "type": "PERSONAL_GENERAL", "page": page, "size": 100}
+            r = med_omforsok(lambda: c.get("/search/campaigns/online", params=params))
             data = r.json()
             for item in data.get("results", []):
                 promo = (item.get("potentialPromotions") or [{}])[0]
@@ -108,7 +105,6 @@ def _to_product(item: dict, store_name: str) -> Product:
 
 def search(query: str, store_name: str, limit: int = 8) -> list[Product]:
     with _client() as c:
-        r = c.get("/search", params={"q": query, "size": limit, "page": 0})
-        r.raise_for_status()
+        r = med_omforsok(lambda: c.get("/search", params={"q": query, "size": limit, "page": 0}))
         results = r.json().get("results") or []
         return [_to_product(i, store_name) for i in results[:limit] if i.get("online", True)]

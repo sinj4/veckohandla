@@ -45,6 +45,7 @@ class Result:
     ica_savings: dict[str, float] = field(default_factory=dict)
     cart: dict | None = None
     cart_error: str | None = None  # t.ex. att Willys-inloggningen gått ut
+    varningar: list[str] = field(default_factory=list)
     offers_count: dict[str, int] = field(default_factory=dict)
 
 
@@ -67,11 +68,17 @@ def _blocked(name: str, words: list[str]) -> bool:
     return any(w in n for w in words)
 
 
-def fetch_all_offers(cfg: dict) -> list[Offer]:
+def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offer]:
+    """Willys-fel stoppar körningen; en ICA-butik som fallerar hoppas över med en varning."""
     stores = cfg["butiker"]
     offers = willys.fetch_offers(stores["willys"]["store_id"], stores["willys"]["namn"])
     for s in stores.get("ica", []):
-        offers += ica.fetch_offers(s["erbjudande_slug"], s["namn"])
+        try:
+            offers += ica.fetch_offers(s["erbjudande_slug"], s["namn"])
+        except Exception as e:  # nätverk, ändrad sida m.m.
+            if varningar is None:
+                raise
+            varningar.append(f"Kunde inte hämta kampanjer från {s['namn']}: {e}")
     return offers
 
 
@@ -80,7 +87,10 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     willys_name = cfg["butiker"]["willys"]["namn"]
 
     log("Hämtar veckans kampanjer…")
-    offers = fetch_all_offers(cfg)
+    varningar: list[str] = []
+    offers = fetch_all_offers(cfg, varningar)
+    for v in varningar:
+        log(f"  VARNING: {v}")
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     offers = [o for o in offers if not _blocked(f"{o.name} {o.brand}", sparrord)]
     counts: dict[str, int] = {}
@@ -128,7 +138,7 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
 
     # Ett ICA-besök lönar sig bara om det sparar tillräckligt – annars köps allt på Willys
     threshold = cfg["optimering"]["min_besparing_for_delning_kr"]
-    result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts)
+    result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar)
     stores = {l.ica.ica_butik for l in lines if l.buy_at_ica}
     for store in stores:
         store_lines = [l for l in lines if l.buy_at_ica and l.ica.ica_butik == store]
