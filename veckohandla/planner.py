@@ -37,6 +37,11 @@ class Inkopsrad(BaseModel):
     behov: str = Field(description="Total mängd för veckan, t.ex. '1,2 kg'")
     sokord: str = Field(description="1–2 ord för Willys sök, utan märke eller förpackningsstorlek, t.ex. 'kycklingfilé', 'ägg'")
     till: list[str] = Field(description="Vilka middagar (dag) varan används till")
+    kanske_hemma: bool = Field(
+        default=False,
+        description="Sant för basvaror som ketchup eller senap som de flesta har hemma men som inte står i "
+        "skafferilistan. Sådana rader läggs inte i korgen utan listas under 'Kolla om du har hemma'.",
+    )
 
 
 class Veckoplan(BaseModel):
@@ -85,15 +90,16 @@ def _dagar(n: int) -> str:
 class Planner:
     """Anropar Claude via API-nyckel om ANTHROPIC_API_KEY finns, annars via Claude Code (Pro-inloggning)."""
 
-    def __init__(self, model: str):
-        self.model = model
+    def __init__(self, model_meny: str, model_produkter: str | None = None):
+        self.model_meny = model_meny
+        self.model_produkter = model_produkter or model_meny
         self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
 
-    def _parse(self, prompt: str, schema: type[BaseModel], system: str, effort: str):
+    def _parse(self, prompt: str, schema: type[BaseModel], system: str, effort: str, model: str):
         if self.client is None:
-            return self._parse_claude_code(prompt, schema, system, effort)
+            return self._parse_claude_code(prompt, schema, system, effort, model)
         resp = self.client.messages.parse(
-            model=self.model,
+            model=model,
             max_tokens=16000,
             system=system,
             output_config={"effort": effort},
@@ -106,14 +112,14 @@ class Planner:
             raise RuntimeError("Svaret blev för långt (max_tokens)")
         return resp.parsed_output
 
-    def _parse_claude_code(self, prompt: str, schema: type[BaseModel], system: str, effort: str):
+    def _parse_claude_code(self, prompt: str, schema: type[BaseModel], system: str, effort: str, model: str):
         exe = shutil.which("claude") or str(Path.home() / ".local/bin/claude")
         cmd = [
             exe, "-p",
             "--output-format", "json",
             "--json-schema", json.dumps(schema.model_json_schema()),
             "--append-system-prompt", system,
-            "--model", self.model,
+            "--model", model,
             "--effort", effort,
             "--tools", "",
             "--no-session-persistence",
@@ -153,12 +159,13 @@ Willys-kampanjerna gäller e-handeln där allt handlas; ICA-butikernas kampanjer
 så använd dem bara när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
 
-Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror.
+Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
+basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står i skafferilistan.
 
 # Veckans kampanjer
 {_offers_block(offers)}
 """
-        return self._parse(prompt, Veckoplan, system, effort="high")
+        return self._parse(prompt, Veckoplan, system, effort="high", model=self.model_meny)
 
     def choose_products(
         self,
@@ -194,4 +201,4 @@ Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror.
 # ICA-kampanjer (bara i butik)
 {ica}
 """
-        return self._parse(prompt, Produktval, system, effort="medium")
+        return self._parse(prompt, Produktval, system, effort="medium", model=self.model_produkter)

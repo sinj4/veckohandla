@@ -72,6 +72,20 @@ def _blocked(name: str, words: list[str]) -> bool:
     return any(w in n for w in words)
 
 
+# Används om optimering.uteslut_kategorier saknas i config. Willys: första ledet i
+# googleAnalyticsCategory, ICA: articleGroupName. Jämförs utan hänsyn till versaler.
+UTESLUT_KATEGORIER = [
+    "halsa-och-skonhet", "hem-och-stad", "djur", "blommor-och-tradgard",
+    "Hälsa & skönhet", "Hem & fritid",
+]
+
+
+def filtrera_kategorier(offers: list[Offer], uteslut: list[str]) -> list[Offer]:
+    """Ta bort kampanjer i kategorier som inte är mat (hygien, städ, djurmat …)."""
+    bort = {k.lower() for k in uteslut}
+    return [o for o in offers if o.category.split("|")[0].strip().lower() not in bort]
+
+
 def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offer]:
     """Willys-fel stoppar körningen; en ICA-butik som fallerar hoppas över med en varning."""
     stores = cfg["butiker"]
@@ -87,7 +101,8 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
 
 
 def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
-    planner = Planner(cfg["claude"]["model"])
+    c = cfg["claude"]
+    planner = Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
     willys_name = cfg["butiker"]["willys"]["namn"]
 
     log("Hämtar veckans kampanjer…")
@@ -97,6 +112,10 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
         log(f"  VARNING: {v}")
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     offers = [o for o in offers if not _blocked(f"{o.name} {o.brand}", sparrord)]
+    uteslut = cfg.get("optimering", {}).get("uteslut_kategorier", UTESLUT_KATEGORIER)
+    fore = len(offers)
+    offers = filtrera_kategorier(offers, uteslut)
+    log(f"  {fore - len(offers)} kampanjer som inte är mat filtrerades bort")
     counts: dict[str, int] = {}
     for o in offers:
         counts[o.store] = counts.get(o.store, 0) + 1
@@ -148,16 +167,18 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     for store in stores:
         store_lines = [l for l in lines if l.buy_at_ica and l.ica.ica_butik == store]
         saving = sum((l.willys_cost or 0) - l.ica.ica_kostnad_kr for l in store_lines if l.willys_cost)
-        if saving >= threshold or any(l.product is None for l in store_lines):
-            result.ica_lists[store] = store_lines
-            result.ica_savings[store] = round(saving, 2)
-        else:
+        if saving < threshold:
+            # Inte värt ett extra besök: rader med Willys-alternativ flyttas tillbaka till Willys
             for l in store_lines:
                 if l.product:
                     l.ica = None
+            store_lines = [l for l in store_lines if l.product is None]
+        if store_lines:
+            result.ica_lists[store] = store_lines
+            result.ica_savings[store] = round(saving if saving >= threshold else 0.0, 2)
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
-    willys_lines = [l for l in lines if l.product and not l.buy_at_ica]
+    willys_lines = [l for l in lines if l.product and not l.buy_at_ica and not l.row.kanske_hemma]
     if ingr_ord and willys_lines:
         log("Kontrollerar ingredienser…")
         kontroll = ingredienser.kontrollera(
@@ -170,14 +191,16 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
                 log(f"  Borttagen: {l.product.name} innehåller {k.ord!r}")
             l.kontrollera = k.status == "kontrollera"
 
-    result.willys_total = round(sum(l.willys_cost or 0 for l in lines if not l.buy_at_ica and not l.borttagen), 2)
+    result.willys_total = round(
+        sum(l.willys_cost or 0 for l in lines if not l.buy_at_ica and not l.borttagen and not l.row.kanske_hemma), 2
+    )
     result.ica_total = round(sum(l.ica.ica_kostnad_kr for l in lines if l.buy_at_ica), 2)
 
     cart_lines = [
         {"code": l.product.code, "qty": l.qty, "pick_unit": l.product.extra.get("pickUnit", "pieces"),
          "name": l.product.name, "size": l.product.size}
         for l in lines
-        if l.product and not l.buy_at_ica and not l.borttagen and l.qty > 0
+        if l.product and not l.buy_at_ica and not l.borttagen and not l.row.kanske_hemma and l.qty > 0
     ]
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))

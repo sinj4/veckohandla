@@ -65,7 +65,7 @@ def render(res: Result) -> str:
     parts.append(f"<h2>{e(res.willys_namn)} – {_kr(res.willys_total)}</h2><table cellpadding='4' style='border-collapse:collapse;font-size:14px'>")
     parts.append("<tr style='text-align:left;border-bottom:1px solid #ccc'><th>Vara</th><th>Produkt</th><th>Antal</th><th>Pris</th></tr>")
     for l in res.lines:
-        if l.buy_at_ica:
+        if l.buy_at_ica or l.row.kanske_hemma:
             continue
         if l.product and l.borttagen:
             parts.append(
@@ -84,8 +84,20 @@ def render(res: Result) -> str:
             parts.append(f"<tr><td>{e(l.row.vara)}</td><td colspan='3' style='color:#c00'>Hittade ingen passande vara – köp manuellt</td></tr>")
     parts.append("</table>")
 
+    hemma = [l for l in res.lines if l.row.kanske_hemma and not l.buy_at_ica]
+    if hemma:
+        parts.append("<h2>Kolla om du har hemma</h2><p style='color:#666;font-size:13px'>Ligger inte i korgen.</p><ul>")
+        for l in hemma:
+            if l.product:
+                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)}): {e(l.product.name)} {e(l.product.size)} – {_kr(l.willys_cost)}</li>")
+            else:
+                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)})</li>")
+        parts.append("</ul>")
+
     for store, lines in res.ica_lists.items():
-        parts.append(f"<h2>{e(store)} – i butik (sparar ca {_kr(res.ica_savings.get(store))})</h2><ul>")
+        saving = res.ica_savings.get(store)
+        rubrik = f"sparar ca {_kr(saving)}" if saving else "finns inte på Willys"
+        parts.append(f"<h2>{e(store)} – i butik ({rubrik})</h2><ul>")
         for l in lines:
             parts.append(f"<li>{e(l.row.vara)}: {e(l.ica.ica_erbjudande or '')} × {l.ica.ica_antal} ≈ {_kr(l.ica.ica_kostnad_kr)}</li>")
         parts.append("</ul>")

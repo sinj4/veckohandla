@@ -59,6 +59,11 @@ butiker:
 optimering:
   # Föreslå ett ICA-besök bara om det sparar minst så här mycket per butik
   min_besparing_for_delning_kr: 75
+  # Kampanjkategorier som inte är mat och inte skickas till menyplaneraren.
+  # Willys: första ledet i googleAnalyticsCategory, ICA: articleGroupName.
+  # Saknas nyckeln används samma lista som standard; [] stänger av filtret.
+  uteslut_kategorier: [halsa-och-skonhet, hem-och-stad, djur, blommor-och-tradgard,
+                       "Hälsa & skönhet", "Hem & fritid"]
 
 epost:
   till: du@example.com
@@ -68,4 +73,6 @@ epost:
   # Lösenord läses från miljövariabeln SMTP_PASSWORD (Gmail: app-lösenord)
 
 claude:
-  model: claude-opus-5-5
+  model: claude-opus-5-5             # standard för båda stegen
+  model_meny: claude-opus-5-5        # menyplanering (kräver mest omdöme)
+  model_produkter: claude-sonnet-5-5 # produktval (mer mekaniskt)
