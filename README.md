@@ -10,9 +10,9 @@ Varje vecka:
 
 1. **Skannar kampanjer** i Willys e-handel och valfria ICA-butiker (via ica.se/erbjudanden).
 2. **Planerar middagar** med Claude utifrån kampanjerna och ditt hushåll: antal personer, barnens åldrar, önskemål och sådant som ska undvikas. Rätter från de senaste veckorna upprepas inte.
-3. **Matchar varje ingrediens** mot Willys sortiment och väljer billigaste rimliga vara. Den tar hänsyn till "2 för"-kampanjer, "max 1 köp/hushåll" och lösvikt.
+3. **Matchar varje ingrediens** mot sortimentet i *din* Willys-butik och väljer billigaste rimliga vara, plus upp till 3 reserver. Den tar hänsyn till "2 för"-kampanjer, "max 1 köp/hushåll" och lösvikt.
 4. **Jämför med ICA-kampanjer.** Sparar ett ICA-besök tillräckligt blir de varorna en separat butikslista.
-5. **Kontrollerar ingredienser** för valda varor mot dina spärrord, till exempel fläsk i färdiga köttbullar.
+5. **Kontrollerar att varan finns i butiken och att ingredienserna klarar dina spärrord**, till exempel fläsk i färdiga köttbullar. Faller huvudvalet bort tas nästa reserv.
 6. **Fyller Willys-varukorgen.** Boten lägger bara till det som fattas och tar aldrig bort något. Den lägger **aldrig** någon order, det gör du själv efter att ha granskat korgen.
 7. **Skickar en rapport** med meny, recept, varukorg och prisuppgifter, via mejl och som HTML-fil. Går något fel kommer ett felmejl i stället.
 
@@ -40,7 +40,7 @@ cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 
 Du kan också planera och fylla korgen i ett steg med `kor --fyll-varukorg`.
 
-`fyll-varukorg` går att köra flera gånger. Boten läser först korgen och lägger bara till det som fattas, så du får inga dubbla mängder och inget tas bort. Har Willys-inloggningen gått ut kommer rapporten och mejlet ändå, med instruktioner om att köra `login` och sedan `fyll-varukorg <vecka>`.
+`fyll-varukorg` går att köra flera gånger. Boten läser först korgen och lägger bara till det som fattas, så du får inga dubbla mängder och inget tas bort. Rader med samma vara, till exempel bananer både i `alltid_kop` och i ett recept, räknas ihop. Nekar Willys en vara prövas radens reserver i tur och ordning, och bytena visas i terminalen och rapporten. Har Willys-inloggningen gått ut kommer rapporten och mejlet ändå, med instruktioner om att köra `login` och sedan `fyll-varukorg <vecka>`.
 
 ### Schemaläggning (macOS)
 ```sh
@@ -62,7 +62,7 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`sparrord`**: ett skyddsnät i koden. Produkter vars namn innehåller något av orden tas bort innan Claude ser dem.
 - **`skafferi`**: varor som alltid finns hemma och därför aldrig köps.
 - **`alltid_kop`**: basvaror som läggs i korgen varje vecka.
-- **`sparrord_ingredienser`**: ord som bara jämförs mot ingredienslistan för valda produkter. Det fångar till exempel köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Även `sparrord` jämförs mot ingredienserna. En vara som matchar tas bort ur korgen och märks "köp manuellt". Kött, chark och färdigmat utan ingrediensuppgift märks "Kontrollera ingredienser".
+- **`sparrord_ingredienser`**: ord som bara jämförs mot ingredienslistan för valda produkter. Det fångar till exempel köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Även `sparrord` jämförs mot ingredienserna. En vara som matchar byts mot nästa reserv. Fungerar inget alternativ märks raden "Köp manuellt". Kött, chark och färdigmat utan ingrediensuppgift märks "Kontrollera ingredienser". Ingredienslistor cachas per produkt i `data/ingredienser-cache.json` och hämtas på nytt efter 30 dagar.
 - **`min_besparing_for_delning_kr`**: hur mycket ett extra ICA-besök minst måste spara. Under gränsen köps allt som finns på Willys där.
 - **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
@@ -71,7 +71,8 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 
 | Del | Källa |
 |---|---|
-| Willys-kampanjer och sök | Willys öppna JSON-endpoints (`/search/campaigns/online`, `/search`) |
+| Willys-kampanjer | Willys öppna JSON-endpoint `/search/campaigns/online` |
+| Willys-sök och tillgänglighet | En anonym session per körning där din butik (`butiker.willys.store_id`) väljs via `/axfood/rest/v2/store/activate`. `/search` ignorerar `storeId`-parametrar, så sortimentet styrs av butiken i sessionen. Varor som inte finns i butiken ger 404 på `/axfood/rest/p/<kod>`. Cookies hålls bara i minnet, och tillgängligheten cachas aldrig. |
 | ICA-kampanjer | JSON inbäddad i butikens erbjudandesida på ica.se |
 | Meny och produktval | Claude via `claude -p` (Pro/Max) eller Anthropic API (om `ANTHROPIC_API_KEY` finns) |
 | Varukorg | Playwright med din inloggade Willys-profil (`browser-profiles/`, lokal och aldrig incheckad) |
