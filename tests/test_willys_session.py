@@ -64,3 +64,25 @@ def test_tillganglig():
         assert sess.tillganglig("100764898_ST") is True
         assert sess.tillganglig("100026936_KG") is False  # 404 = finns inte i butiken
         assert sess.tillganglig("SLUT_ST") is False  # outOfStock
+
+
+def test_tillganglig_okand_vid_503_och_natverksfel():
+    def handler(req):
+        p = req.url.path
+        if p == "/axfood/rest/csrf-token":
+            return httpx.Response(200, json="t")
+        if p == "/axfood/rest/v2/store/activate":
+            return httpx.Response(200, json={})
+        if p == "/axfood/rest/v2/store/active":
+            return httpx.Response(200, json={"storeId": "2341"})
+        if p == "/axfood/rest/p/NERE_ST":
+            return httpx.Response(503)
+        if p == "/axfood/rest/p/TIMEOUT_ST":
+            raise httpx.ConnectTimeout("t")
+        return httpx.Response(404)
+
+    c = httpx.Client(base_url=willys.BASE, transport=httpx.MockTransport(handler))
+    with willys.WillysSession("2341", client=c) as sess:
+        assert sess.tillganglig("NERE_ST") is None  # efter omförsöken: okänt, ingen krasch
+        assert sess.tillganglig("TIMEOUT_ST") is None
+        assert sess.tillganglig("SAKNAS_ST") is False  # 404 betyder som förut att varan inte finns

@@ -41,6 +41,7 @@ class Line:
     reserver: list[Alternativ] = field(default_factory=list)  # kvar efter valet – prövas om Willys nekar
     borttagen: str | None = None  # alla alternativ föll bort – köp manuellt
     kontrollera: bool = False  # kött/chark/färdigmat utan ingrediensuppgift
+    tillganglighet_okand: bool = False  # tillgänglighetskontrollen gav inget svar – varan antas finnas
 
     @property
     def forsta_val(self) -> Product | None:
@@ -126,17 +127,19 @@ def provningsordning(val: Val | None, kandidater: list[Product]) -> list[Alterna
 
 def valj_alternativ(
     alternativ: list[Alternativ],
-    finns: Callable[[str], bool],
+    finns: Callable[[str], bool | None],
     ingredienser_ok: Callable[[str], ingredienser.Kontroll] | None,
-) -> tuple[Alternativ | None, list[tuple[Alternativ, str]], bool]:
+) -> tuple[Alternativ | None, list[tuple[Alternativ, str]], bool, bool]:
     """Pröva alternativen i ordning: först tillgänglighet i butiken, sedan ingredienser.
 
-    Returnerar (valt alternativ eller None, bortvalda med orsak, kontrollera-flagga). Ingredienser
-    hämtas bara för alternativ som faktiskt prövas.
+    `finns` ger True/False, eller None om det inte gick att avgöra – då antas varan finnas.
+    Returnerar (valt alternativ eller None, bortvalda med orsak, kontrollera-flagga,
+    tillgänglighet-okänd-flagga). Ingredienser hämtas bara för alternativ som faktiskt prövas.
     """
     bortvalda: list[tuple[Alternativ, str]] = []
     for alt in alternativ:
-        if not finns(alt.product.code):
+        tillganglig = finns(alt.product.code)
+        if tillganglig is False:
             bortvalda.append((alt, "finns inte i butiken"))
             continue
         kontrollera = False
@@ -146,8 +149,8 @@ def valj_alternativ(
                 bortvalda.append((alt, f"innehåller {k.ord}"))
                 continue
             kontrollera = k.status == "kontrollera"
-        return alt, bortvalda, kontrollera
-    return None, bortvalda, False
+        return alt, bortvalda, kontrollera, tillganglig is None
+    return None, bortvalda, False, False
 
 
 def godkanda_reserver(
@@ -301,7 +304,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
             ingr = ik.kontrollera if ingr_ord else None
             for l in willys_lines:
                 finns = _pausad(sess.tillganglig) if sess.butik_vald else (lambda code: True)
-                valt, l.bortvalda, l.kontrollera = valj_alternativ(l.alternativ, finns, ingr)
+                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_alternativ(l.alternativ, finns, ingr)
                 if valt is None:
                     l.product, l.qty, l.willys_cost = None, 0, None
                     l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
@@ -346,9 +349,9 @@ def _korgrad(p: Product, qty: int) -> dict:
     return {"code": p.code, "qty": qty, "pick_unit": p.extra.get("pickUnit", "pieces"), "name": p.name, "size": p.size}
 
 
-def _pausad(f: Callable[[str], bool]) -> Callable[[str], bool]:
+def _pausad(f: Callable[[str], bool | None]) -> Callable[[str], bool | None]:
     """Tillgänglighetsanrop med paus emellan – var snäll mot Willys."""
-    def g(code: str) -> bool:
+    def g(code: str) -> bool | None:
         res = f(code)
         time.sleep(0.5)
         return res

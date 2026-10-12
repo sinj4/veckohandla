@@ -85,6 +85,8 @@ def render(res: Result) -> str:
             )
         elif l.product:
             kolla = "<br><small style='color:#b36b00'>⚠️ Kontrollera ingredienser</small>" if l.kontrollera else ""
+            if l.tillganglighet_okand:
+                kolla += "<br><small style='color:#b36b00'>⚠️ Kunde inte kontrollera om varan finns i butiken</small>"
             bytt = f"<br><small style='color:#1a5fb4'>{e(byte_text(l))}</small>" if l.bytt else ""
             promo = f"<br><small style='color:#c00'>{e(l.product.promo_text)}</small>" if l.product.promo_text else ""
             parts.append(

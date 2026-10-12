@@ -108,3 +108,13 @@ def test_alla_sokningar_misslyckas_avbryter_fore_produktvalet(miljo):
     with pytest.raises(pipeline.AllaSokningarMisslyckades, match="Alla 2 sökningar"):
         pipeline.run(CFG, log=lambda *a: None)
     assert FejkPlanerare.produktval_anrop == 0
+
+
+def test_tillganglighet_503_behaller_alternativet_och_flaggar(miljo, monkeypatch):
+    miljo()
+    monkeypatch.setattr(FejkSession, "tillganglig", lambda self, code: None if code == "ägg_ST" else True)
+    res = pipeline.run(CFG, log=lambda *a: None)
+    agg, mjolk = res.lines
+    assert agg.product.code == "ägg_ST" and agg.tillganglighet_okand and not agg.bortvalda
+    assert not mjolk.tillganglighet_okand
+    assert "Kunde inte kontrollera om varan finns i butiken" in report.render(res)

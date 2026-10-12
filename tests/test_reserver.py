@@ -50,7 +50,7 @@ def ingr(stoppade: dict[str, str]):
 def test_huvudval_med_404_ger_reserv():
     alt = provningsordning(val(), KANDIDATER)
     kontroll, anrop = ingr({})
-    valt, bort, _ = valj_alternativ(alt, lambda c: c != "A_ST", kontroll)
+    valt, bort, _, _ = valj_alternativ(alt, lambda c: c != "A_ST", kontroll)
     assert valt.product.code == "B_ST" and valt.qty == 2
     assert [(a.product.code, o) for a, o in bort] == [("A_ST", "finns inte i butiken")]
     assert anrop == ["B_ST"]  # ingredienser hämtas inte för varan som inte finns
@@ -59,7 +59,7 @@ def test_huvudval_med_404_ger_reserv():
 def test_huvudval_borttaget_av_ingrediens_ger_reserv():
     alt = provningsordning(val(), KANDIDATER)
     kontroll, anrop = ingr({"A_ST": "gris"})
-    valt, bort, _ = valj_alternativ(alt, lambda c: True, kontroll)
+    valt, bort, _, _ = valj_alternativ(alt, lambda c: True, kontroll)
     assert valt.product.code == "B_ST"
     assert [(a.product.code, o) for a, o in bort] == [("A_ST", "innehåller gris")]
     assert anrop == ["A_ST", "B_ST"]  # C prövas aldrig – ingredienser bara när de behövs
@@ -68,20 +68,20 @@ def test_huvudval_borttaget_av_ingrediens_ger_reserv():
 def test_alla_alternativ_faller_bort():
     alt = provningsordning(val(), KANDIDATER)
     kontroll, _ = ingr({"B_ST": "skinka"})
-    valt, bort, _ = valj_alternativ(alt, lambda c: c != "A_ST" and c != "C_ST", kontroll)
+    valt, bort, _, _ = valj_alternativ(alt, lambda c: c != "A_ST" and c != "C_ST", kontroll)
     assert valt is None
     assert [o for _, o in bort] == ["finns inte i butiken", "innehåller skinka", "finns inte i butiken"]
 
 
 def test_kontrollera_flagga_foljer_valt_alternativ():
     alt = provningsordning(val(), KANDIDATER)
-    valt, _, kolla = valj_alternativ(alt, lambda c: True, lambda c: Kontroll("kontrollera"))
+    valt, _, kolla, _ = valj_alternativ(alt, lambda c: True, lambda c: Kontroll("kontrollera"))
     assert valt.product.code == "A_ST" and kolla is True
 
 
 def test_utan_sparrord_kontrolleras_bara_tillganglighet():
     alt = provningsordning(val(), KANDIDATER)
-    valt, _, _ = valj_alternativ(alt, lambda c: True, None)
+    valt, _, _, _ = valj_alternativ(alt, lambda c: True, None)
     assert valt.product.code == "A_ST"
 
 

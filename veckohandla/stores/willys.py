@@ -179,13 +179,14 @@ class WillysSession:
         self._valj_butik()
         return med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
 
-    def tillganglig(self, code: str) -> bool:
-        """Finns varan i butiken just nu? 404 = inte i sortimentet. Cachas aldrig."""
+    def tillganglig(self, code: str) -> bool | None:
+        """Finns varan i butiken just nu? False vid 404 eller outOfStock, None om det inte gick att
+        avgöra (5xx efter omförsök, nätverksfel, trasigt svar). Cachas aldrig."""
         self._valj_butik()
         try:
             d = med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return False
-            raise
+            return False if e.response.status_code == 404 else None
+        except (httpx.TransportError, ValueError):
+            return None
         return not d.get("outOfStock")
