@@ -109,8 +109,77 @@ def _to_product(item: dict, store_name: str) -> Product:
     return p
 
 
+def _search_results(c: httpx.Client, query: str, store_name: str, limit: int) -> list[Product]:
+    r = med_omforsok(lambda: c.get("/search", params={"q": query, "size": limit, "page": 0}))
+    results = r.json().get("results") or []
+    return [_to_product(i, store_name) for i in results[:limit] if i.get("online", True)]
+
+
 def search(query: str, store_name: str, limit: int = 8) -> list[Product]:
+    """Sök utan vald butik. Sortimentet kan då innehålla varor som inte finns i din butik –
+    använd WillysSession för sökningar inför korgen."""
     with _client() as c:
-        r = med_omforsok(lambda: c.get("/search", params={"q": query, "size": limit, "page": 0}))
-        results = r.json().get("results") or []
-        return [_to_product(i, store_name) for i in results[:limit] if i.get("online", True)]
+        return _search_results(c, query, store_name, limit)
+
+
+class ButiksvalMisslyckades(RuntimeError):
+    pass
+
+
+class WillysSession:
+    """Anonym Willys-session med vald butik, för sök och produktdetaljer.
+
+    `/search` ignorerar store_id-parametrar; sortimentet styrs av butiken i sessionen. Butiken väljs
+    därför en gång per körning via POST /axfood/rest/v2/store/activate i en ny anonym klient.
+    Cookies hålls bara i minnet och sparas aldrig till disk. Rör inte användarens inloggade session.
+    """
+
+    def __init__(self, store_id: str, client: httpx.Client | None = None):
+        self.store_id = str(store_id)
+        self._c = client or _client()
+        self._vald = False
+
+    def __enter__(self) -> WillysSession:
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._c.close()
+
+    def _valj_butik(self) -> None:
+        if self._vald:
+            return
+        tok = med_omforsok(lambda: self._c.get("/axfood/rest/csrf-token")).json()
+        med_omforsok(lambda: self._c.post(
+            "/axfood/rest/v2/store/activate",
+            params={"storeId": self.store_id, "activelySelected": "true", "forceAsPickingStore": "true"},
+            headers={"X-CSRF-Token": tok},
+        ))
+        aktiv = med_omforsok(lambda: self._c.get("/axfood/rest/v2/store/active")).json()
+        if str(aktiv.get("storeId")) != self.store_id:
+            raise ButiksvalMisslyckades(
+                f"Willys valde butik {aktiv.get('storeId')!r} i stället för {self.store_id} – har API:t ändrats?"
+            )
+        self._vald = True
+
+    def search(self, query: str, store_name: str, limit: int = 8) -> list[Product]:
+        self._valj_butik()
+        return _search_results(self._c, query, store_name, limit)
+
+    def product_details(self, code: str) -> dict:
+        """Produktdetaljer i vald butik. Kastar httpx.HTTPStatusError (404) om varan inte finns där."""
+        self._valj_butik()
+        return med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
+
+    def tillganglig(self, code: str) -> bool:
+        """Finns varan i butiken just nu? 404 = inte i sortimentet. Cachas aldrig."""
+        self._valj_butik()
+        try:
+            d = med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return False
+            raise
+        return not d.get("outOfStock")

@@ -123,6 +123,12 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
 
 
 def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
+    # En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik
+    with willys.WillysSession(cfg["butiker"]["willys"]["store_id"]) as sess:
+        return _run(cfg, sess, fill_cart, log)
+
+
+def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
     c = cfg["claude"]
     planner = Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
     willys_name = cfg["butiker"]["willys"]["namn"]
@@ -157,9 +163,9 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     candidates: list[list[Product]] = []
     for r in rows:
         try:
-            found = willys.search(r.sokord, willys_name)
+            found = sess.search(r.sokord, willys_name)
             if not found and r.vara.lower() != r.sokord.lower():
-                found = willys.search(r.vara, willys_name)
+                found = sess.search(r.vara, willys_name)
             candidates.append([p for p in found if not _blocked(p.name, sparrord)])
         except Exception as e:  # en enskild sökning ska inte stoppa hela körningen
             log(f"  sökning misslyckades för {r.sokord!r}: {e}")
@@ -192,7 +198,8 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     if ingr_ord and willys_lines:
         log("Kontrollerar ingredienser…")
         kontroll = ingredienser.kontrollera(
-            [l.product.code for l in willys_lines], ingr_ord, DATA / "ingredienser-cache.json"
+            [l.product.code for l in willys_lines], ingr_ord, DATA / "ingredienser-cache.json",
+            hamta=sess.product_details,
         )
         for l in willys_lines:
             k = kontroll[l.product.code]
