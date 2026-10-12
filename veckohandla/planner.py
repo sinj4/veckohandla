@@ -52,10 +52,20 @@ class Veckoplan(BaseModel):
 
 # ---------- Steg 2: produktval ----------
 
+class Reserv(BaseModel):
+    kod: str = Field(description="Willys-produktkod ur samma rads kandidater")
+    antal: int = Field(description="Antal räknat för reservens egen förpackningsstorlek")
+
+
 class Val(BaseModel):
     rad: int = Field(description="Index i inköpslistan")
     willys_kod: str | None = Field(description="Vald Willys-produktkod eller null om inget passar")
     willys_antal: int = Field(description="Antal förpackningar/styck. Lösvikt märkt 'per st' räknas i styck (8 bananer = 8)")
+    willys_reserver: list[Reserv] = Field(
+        default_factory=list,
+        description="Högst 3 reservalternativ ur samma rads kandidater, bäst först, om huvudvalet inte finns "
+        "eller inte godkänns. Samma krav som huvudvalet.",
+    )
     ica_butik: str | None = Field(description="ICA-butik om en ICA-kampanj är klart billigare, annars null")
     ica_erbjudande: str | None = None
     ica_antal: int = 0
@@ -192,6 +202,11 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
   Är du osäker på om en produkt innehåller något av detta (t.ex. korv utan angivet köttslag): välj en annan.
 - Varan måste passa rätten den ska till. Byt aldrig till en annan sorts vara (t.ex. lever i stället
   för filé, kattmat, färdigrätter). Om ingen kandidat passar: willys_kod = null.
+- Ange för varje rad med willys_kod upp till 3 willys_reserver, rangordnade, ur samma rads kandidater.
+  De används om huvudvalet inte finns i butiken eller stoppas av ingredienskontrollen. Samma krav som
+  huvudvalet: samma sorts vara som passar rätten, inget av det som ska undvikas, och antalet räknat för
+  reservens egen förpackningsstorlek (t.ex. 2 st á 500 g om huvudvalet var 1 st á 1 kg). Hellre färre
+  reserver än en som inte passar.
 - Om en ICA-kampanj nedan är tydligt billigare för samma behov, ange ica_butik, ica_erbjudande, ica_antal
   och uppskattad ica_kostnad_kr. Välj ändå en Willys-produkt som reserv.
 

@@ -8,6 +8,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from .models import Offer, Product
 from .planner import Inkopsrad, Planner, Val, Veckoplan
@@ -23,14 +24,31 @@ KORG_GLOB = "*-v[0-9][0-9]-korg.json"
 
 
 @dataclass
+class Alternativ:
+    product: Product
+    qty: int
+
+
+@dataclass
 class Line:
     row: Inkopsrad
     product: Product | None
     qty: int
     willys_cost: float | None
     ica: Val | None = None  # satt om varan ska köpas på ICA i stället
-    borttagen: str | None = None  # spärrord som hittades i ingredienserna – läggs inte i korgen
+    alternativ: list[Alternativ] = field(default_factory=list)  # huvudval + reserver, i prövningsordning
+    bortvalda: list[tuple[Alternativ, str]] = field(default_factory=list)  # (alternativ, orsak) som föll bort
+    reserver: list[Alternativ] = field(default_factory=list)  # kvar efter valet – prövas om Willys nekar
+    borttagen: str | None = None  # alla alternativ föll bort – köp manuellt
     kontrollera: bool = False  # kött/chark/färdigmat utan ingrediensuppgift
+
+    @property
+    def forsta_val(self) -> Product | None:
+        return self.alternativ[0].product if self.alternativ else self.product
+
+    @property
+    def bytt(self) -> bool:
+        return self.product is not None and bool(self.bortvalda)
 
     @property
     def buy_at_ica(self) -> bool:
@@ -84,6 +102,63 @@ def filtrera_kategorier(offers: list[Offer], uteslut: list[str]) -> list[Offer]:
     """Ta bort kampanjer i kategorier som inte är mat (hygien, städ, djurmat …)."""
     bort = {k.lower() for k in uteslut}
     return [o for o in offers if o.category.split("|")[0].strip().lower() not in bort]
+
+
+MAX_RESERVER = 3
+
+
+def provningsordning(val: Val | None, kandidater: list[Product]) -> list[Alternativ]:
+    """Huvudval följt av högst 3 reserver – bara koder som finns bland radens kandidater.
+
+    Antalet justeras med best_qty för respektive produkt (mängdkampanjer).
+    """
+    if val is None or not val.willys_kod:
+        return []
+    by_code = {p.code: p for p in kandidater}
+    ordning = [(val.willys_kod, val.willys_antal)] + [(r.kod, r.antal) for r in val.willys_reserver[:MAX_RESERVER]]
+    out: list[Alternativ] = []
+    for kod, antal in ordning:
+        p = by_code.get(kod)
+        if p and all(a.product.code != kod for a in out):
+            out.append(Alternativ(p, p.best_qty(max(1, antal))))
+    return out
+
+
+def valj_alternativ(
+    alternativ: list[Alternativ],
+    finns: Callable[[str], bool],
+    ingredienser_ok: Callable[[str], ingredienser.Kontroll] | None,
+) -> tuple[Alternativ | None, list[tuple[Alternativ, str]], bool]:
+    """Pröva alternativen i ordning: först tillgänglighet i butiken, sedan ingredienser.
+
+    Returnerar (valt alternativ eller None, bortvalda med orsak, kontrollera-flagga). Ingredienser
+    hämtas bara för alternativ som faktiskt prövas.
+    """
+    bortvalda: list[tuple[Alternativ, str]] = []
+    for alt in alternativ:
+        if not finns(alt.product.code):
+            bortvalda.append((alt, "finns inte i butiken"))
+            continue
+        kontrollera = False
+        if ingredienser_ok:
+            k = ingredienser_ok(alt.product.code)
+            if k.status == "borttagen":
+                bortvalda.append((alt, f"innehåller {k.ord}"))
+                continue
+            kontrollera = k.status == "kontrollera"
+        return alt, bortvalda, kontrollera
+    return None, bortvalda, False
+
+
+def godkanda_reserver(
+    reserver: list[Alternativ],
+    ingredienser_ok: Callable[[str], ingredienser.Kontroll] | None,
+) -> list[Alternativ]:
+    """Reserver som sparas till korgfyllningen måste klara ingredienskontrollen (tillgängligheten
+    avgör Willys när varan läggs i korgen)."""
+    if not ingredienser_ok:
+        return list(reserver)
+    return [r for r in reserver if ingredienser_ok(r.product.code).status != "borttagen"]
 
 
 def tillampa_ica_troskel(lines: list[Line], threshold: float) -> tuple[dict[str, list[Line]], dict[str, float]]:
@@ -180,11 +255,11 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
     lines: list[Line] = []
     for i, r in enumerate(rows):
         v = by_row.get(i)
-        prod = next((p for p in candidates[i] if v and p.code == v.willys_kod), None)
-        qty = prod.best_qty(max(1, v.willys_antal)) if prod and v else 0
+        alt = provningsordning(v, candidates[i])
+        prod, qty = (alt[0].product, alt[0].qty) if alt else (None, 0)
         lines.append(
             Line(row=r, product=prod, qty=qty, willys_cost=prod.cost(qty) if prod else None,
-                 ica=v if v and v.ica_butik and v.ica_kostnad_kr is not None else None)
+                 ica=v if v and v.ica_butik and v.ica_kostnad_kr is not None else None, alternativ=alt)
         )
 
     # Ett ICA-besök lönar sig bara om det sparar tillräckligt – annars köps allt på Willys
@@ -194,30 +269,34 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
     result.ica_lists, result.ica_savings = tillampa_ica_troskel(lines, threshold)
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
-    willys_lines = [l for l in lines if l.product and not l.buy_at_ica and not l.row.kanske_hemma]
-    if ingr_ord and willys_lines:
-        log("Kontrollerar ingredienser…")
-        kontroll = ingredienser.kontrollera(
-            [l.product.code for l in willys_lines], ingr_ord, DATA / "ingredienser-cache.json",
-            hamta=sess.product_details,
-        )
-        for l in willys_lines:
-            k = kontroll[l.product.code]
-            if k.status == "borttagen":
-                l.borttagen = k.ord
-                log(f"  Borttagen: {l.product.name} innehåller {k.ord!r}")
-            l.kontrollera = k.status == "kontrollera"
+    willys_lines = [l for l in lines if l.alternativ and not l.buy_at_ica]
+    if willys_lines:
+        log("Kontrollerar tillgänglighet i butiken och ingredienser…")
+        with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json",
+                                             hamta=sess.product_details) as ik:
+            ingr = ik.kontrollera if ingr_ord else None
+            for l in willys_lines:
+                valt, l.bortvalda, l.kontrollera = valj_alternativ(l.alternativ, _pausad(sess.tillganglig), ingr)
+                if valt is None:
+                    l.product, l.qty, l.willys_cost = None, 0, None
+                    l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
+                    log(f"  Köp manuellt: {l.row.vara} ({l.borttagen})")
+                    continue
+                l.product, l.qty, l.willys_cost = valt.product, valt.qty, valt.product.cost(valt.qty)
+                if l.bortvalda:
+                    log(f"  Bytt: {l.forsta_val.name} → {valt.product.name} ({l.bortvalda[0][1]})")
+                rest = l.alternativ[l.alternativ.index(valt) + 1:]
+                l.reserver = godkanda_reserver(rest, ingr)
 
     result.willys_total = round(
-        sum(l.willys_cost or 0 for l in lines if not l.buy_at_ica and not l.borttagen and not l.row.kanske_hemma), 2
+        sum(l.willys_cost or 0 for l in lines if l.product and not l.buy_at_ica and not l.row.kanske_hemma), 2
     )
     result.ica_total = round(sum(l.ica.ica_kostnad_kr for l in lines if l.buy_at_ica), 2)
 
     cart_lines = [
-        {"code": l.product.code, "qty": l.qty, "pick_unit": l.product.extra.get("pickUnit", "pieces"),
-         "name": l.product.name, "size": l.product.size}
+        {**_korgrad(l.product, l.qty), "reserver": [_korgrad(a.product, a.qty) for a in l.reserver]}
         for l in lines
-        if l.product and not l.buy_at_ica and not l.borttagen and not l.row.kanske_hemma and l.qty > 0
+        if l.product and not l.buy_at_ica and not l.row.kanske_hemma and l.qty > 0
     ]
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))
@@ -238,6 +317,19 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
     return result
 
 
+def _korgrad(p: Product, qty: int) -> dict:
+    return {"code": p.code, "qty": qty, "pick_unit": p.extra.get("pickUnit", "pieces"), "name": p.name, "size": p.size}
+
+
+def _pausad(f: Callable[[str], bool]) -> Callable[[str], bool]:
+    """Tillgänglighetsanrop med paus emellan – var snäll mot Willys."""
+    def g(code: str) -> bool:
+        res = f(code)
+        time.sleep(0.5)
+        return res
+    return g
+
+
 class IngenKorg(RuntimeError):
     pass
 
@@ -252,10 +344,15 @@ def latest_cart_week() -> str:
 
 def fill_saved_cart(week: str, log=print) -> dict:
     """Lägg en sparad veckas inköpslista i Willys-varukorgen (utan att planera om)."""
-    from .cart import CartLine, fill_willys
+    from .cart import fill_willys
 
     saved = json.loads((DATA / f"{week}-korg.json").read_text())
     log(f"Lägger {len(saved)} varor i Willys-varukorgen…")
-    return fill_willys([
-        CartLine(x["code"], x["qty"], x["pick_unit"], x.get("name", ""), x.get("size", "")) for x in saved
-    ])
+    return fill_willys([_cartline(x) for x in saved])
+
+
+def _cartline(x: dict):
+    from .cart import CartLine
+
+    return CartLine(x["code"], x["qty"], x["pick_unit"], x.get("name", ""), x.get("size", ""),
+                    reserver=[_cartline(r) for r in x.get("reserver", [])])

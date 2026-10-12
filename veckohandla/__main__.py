@@ -99,8 +99,10 @@ def main() -> int:
         print(f"Lade till {res['tillagda']} varor, {res['redan_klara']} fanns redan. Willys-korgen totalt: {res['total']}")
         if res["annan_enhet"]:
             print(f"Finns redan i annan enhet (rörs inte): {', '.join(res['annan_enhet'])}")
+        for b in res.get("byten", []):
+            print(f"Bytt till reserv: {b}")
         if res["failed"]:
-            print(f"Willys nekade: {', '.join(res['failed'])}")
+            print(f"Willys nekade (ingen reserv fungerade): {', '.join(res['failed'])}")
         if res["missing"]:
             print(f"För få i korgen efteråt: {', '.join(res['missing'])}")
         return 0

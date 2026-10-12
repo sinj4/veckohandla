@@ -19,6 +19,15 @@ def _code(text: str) -> str:
     return re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
 
 
+def byte_text(l) -> str:
+    """'Bytt: <första valet> → <reserv> (orsak)'; fler bortvalda läggs till efter."""
+    (forsta, orsak), *ovriga = l.bortvalda
+    text = f"Bytt: {forsta.product.name} {forsta.product.size} → {l.product.name} {l.product.size} ({orsak})"
+    for alt, o in ovriga:
+        text += f"; även {alt.product.name} hoppades över ({o})"
+    return text
+
+
 def render(res: Result) -> str:
     e = html.escape
     parts = [
@@ -47,6 +56,8 @@ def render(res: Result) -> str:
         msg = f"✅ Varukorgen på Willys är fylld (korgens total: {e(str(res.cart.get('total')))})."
         if missing:
             msg += f" ⚠️ {len(missing)} varor kom inte med eller fick för lågt antal: {e(', '.join(missing))}."
+        if res.cart.get("byten"):
+            msg += " Willys nekade varor som ersattes med reserv: " + e("; ".join(res.cart["byten"])) + "."
         if res.cart.get("annan_enhet"):
             msg += f" Fanns redan i annan enhet och rördes inte: {e(', '.join(res.cart['annan_enhet']))}."
         msg += " Gå in på <a href='https://www.willys.se/'>willys.se</a>, välj tid och beställ."
@@ -67,17 +78,18 @@ def render(res: Result) -> str:
     for l in res.lines:
         if l.buy_at_ica or l.row.kanske_hemma:
             continue
-        if l.product and l.borttagen:
+        if l.borttagen:
             parts.append(
-                f"<tr><td>{e(l.row.vara)}</td><td colspan='3' style='color:#c00'>{e(l.product.name)} {e(l.product.size)} – "
-                f"<b>Borttagen: innehåller {e(l.borttagen)}, köp manuellt</b></td></tr>"
+                f"<tr><td>{e(l.row.vara)}<br><small style='color:#666'>{e(l.row.behov)}</small></td>"
+                f"<td colspan='3' style='color:#c00'><b>Köp manuellt</b> – inget alternativ fungerade: {e(l.borttagen)}</td></tr>"
             )
         elif l.product:
             kolla = "<br><small style='color:#b36b00'>⚠️ Kontrollera ingredienser</small>" if l.kontrollera else ""
+            bytt = f"<br><small style='color:#1a5fb4'>{e(byte_text(l))}</small>" if l.bytt else ""
             promo = f"<br><small style='color:#c00'>{e(l.product.promo_text)}</small>" if l.product.promo_text else ""
             parts.append(
                 f"<tr><td>{e(l.row.vara)}<br><small style='color:#666'>{e(l.row.behov)}</small></td>"
-                f"<td><a href='{e(l.product.url)}'>{e(l.product.name)}</a> {e(l.product.size)}{promo}{kolla}</td>"
+                f"<td><a href='{e(l.product.url)}'>{e(l.product.name)}</a> {e(l.product.size)}{promo}{kolla}{bytt}</td>"
                 f"<td>{l.qty}</td><td>{_kr(l.willys_cost)}</td></tr>"
             )
         else:
