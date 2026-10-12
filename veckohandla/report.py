@@ -67,11 +67,17 @@ def render(res: Result) -> str:
     for l in res.lines:
         if l.buy_at_ica:
             continue
-        if l.product:
+        if l.product and l.borttagen:
+            parts.append(
+                f"<tr><td>{e(l.row.vara)}</td><td colspan='3' style='color:#c00'>{e(l.product.name)} {e(l.product.size)} – "
+                f"<b>Borttagen: innehåller {e(l.borttagen)}, köp manuellt</b></td></tr>"
+            )
+        elif l.product:
+            kolla = "<br><small style='color:#b36b00'>⚠️ Kontrollera ingredienser</small>" if l.kontrollera else ""
             promo = f"<br><small style='color:#c00'>{e(l.product.promo_text)}</small>" if l.product.promo_text else ""
             parts.append(
                 f"<tr><td>{e(l.row.vara)}<br><small style='color:#666'>{e(l.row.behov)}</small></td>"
-                f"<td><a href='{e(l.product.url)}'>{e(l.product.name)}</a> {e(l.product.size)}{promo}</td>"
+                f"<td><a href='{e(l.product.url)}'>{e(l.product.name)}</a> {e(l.product.size)}{promo}{kolla}</td>"
                 f"<td>{l.qty}</td><td>{_kr(l.willys_cost)}</td></tr>"
             )
         else:

@@ -26,6 +26,12 @@ def find_stores(query: str) -> list[dict]:
         return r.json().get("results") or []
 
 
+def product_details(code: str) -> dict:
+    """Produktdetaljer inkl. `ingredients` och `googleAnalyticsCategory`."""
+    with _client() as c:
+        return med_omforsok(lambda: c.get(f"/axfood/rest/p/{code}")).json()
+
+
 def fetch_offers(store_id: str, store_name: str) -> list[Offer]:
     """E-handelns kampanjer (det boten kan lägga i varukorgen), inte butikens hyllkampanjer."""
     offers: list[Offer] = []

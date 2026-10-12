@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .models import Offer, Product
 from .planner import Inkopsrad, Planner, Val, Veckoplan
+from . import ingredienser
 from .stores import ica, willys
 
 # Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
@@ -28,6 +29,8 @@ class Line:
     qty: int
     willys_cost: float | None
     ica: Val | None = None  # satt om varan ska köpas på ICA i stället
+    borttagen: str | None = None  # spärrord som hittades i ingredienserna – läggs inte i korgen
+    kontrollera: bool = False  # kött/chark/färdigmat utan ingrediensuppgift
 
     @property
     def buy_at_ica(self) -> bool:
@@ -153,14 +156,28 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
                 if l.product:
                     l.ica = None
 
-    result.willys_total = round(sum(l.willys_cost or 0 for l in lines if not l.buy_at_ica), 2)
+    ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
+    willys_lines = [l for l in lines if l.product and not l.buy_at_ica]
+    if ingr_ord and willys_lines:
+        log("Kontrollerar ingredienser…")
+        kontroll = ingredienser.kontrollera(
+            [l.product.code for l in willys_lines], ingr_ord, DATA / "ingredienser-cache.json"
+        )
+        for l in willys_lines:
+            k = kontroll[l.product.code]
+            if k.status == "borttagen":
+                l.borttagen = k.ord
+                log(f"  Borttagen: {l.product.name} innehåller {k.ord!r}")
+            l.kontrollera = k.status == "kontrollera"
+
+    result.willys_total = round(sum(l.willys_cost or 0 for l in lines if not l.buy_at_ica and not l.borttagen), 2)
     result.ica_total = round(sum(l.ica.ica_kostnad_kr for l in lines if l.buy_at_ica), 2)
 
     cart_lines = [
         {"code": l.product.code, "qty": l.qty, "pick_unit": l.product.extra.get("pickUnit", "pieces"),
          "name": l.product.name, "size": l.product.size}
         for l in lines
-        if l.product and not l.buy_at_ica and l.qty > 0
+        if l.product and not l.buy_at_ica and not l.borttagen and l.qty > 0
     ]
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))

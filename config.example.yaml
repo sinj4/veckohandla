@@ -17,8 +17,13 @@ hushall:
   undvik: []
   # Spärrfilter i koden: produkter vars namn innehåller något av orden tas bort innan Claude
   # ser dem – ett skyddsnät för hårda krav. Exempel för fläskfritt:
-  #   [fläsk, gris, bacon, skinka, korv, salami, chorizo, karré, kassler, isterband, blandfärs]
+  #   [fläsk, gris, bacon, skinka, korv, salami, chorizo, karré, kassler, isterband, blandfärs,
+  #    gyros, leverpastej, mortadella, kåldolm, ister, coppa, nduja, lardo, pork]
   sparrord: []
+  # Extra ord som bara jämförs mot ingredienslistan för valda produkter (utöver sparrord).
+  # Fångar t.ex. köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Exempel för fläskfritt:
+  #   [fläsk, griskött, gris, bacon, skinka, ister, svinkött]
+  sparrord_ingredienser: []
 
 # Basvaror som alltid finns hemma – köps inte
 skafferi:
