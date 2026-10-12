@@ -56,7 +56,8 @@ def main() -> int:
         from .stores.willys import find_stores
 
         for s in find_stores(args.ort):
-            print(f"{s['storeId']:>6}  {s['name']}  ({s['address']['town']})  e-handel/hämtning: {'ja' if s.get('clickAndCollect') else 'nej'}")
+            town = (s.get("address") or {}).get("town") or "?"
+            print(f"{s.get('storeId', '?'):>6}  {s.get('name', '?')}  ({town})  e-handel/hämtning: {'ja' if s.get('clickAndCollect') else 'nej'}")
         return 0
 
     cfg = load_config()

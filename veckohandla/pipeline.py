@@ -39,6 +39,7 @@ class Result:
     week: str
     plan: Veckoplan
     lines: list[Line]
+    willys_namn: str = "Willys"
     ica_lists: dict[str, list[Line]] = field(default_factory=dict)
     willys_total: float = 0.0
     ica_total: float = 0.0
@@ -138,7 +139,8 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
 
     # Ett ICA-besök lönar sig bara om det sparar tillräckligt – annars köps allt på Willys
     threshold = cfg["optimering"]["min_besparing_for_delning_kr"]
-    result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar)
+    result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar,
+                    willys_namn=willys_name)
     stores = {l.ica.ica_butik for l in lines if l.buy_at_ica}
     for store in stores:
         store_lines = [l for l in lines if l.buy_at_ica and l.ica.ica_butik == store]

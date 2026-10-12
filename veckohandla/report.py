@@ -62,7 +62,7 @@ def render(res: Result) -> str:
         steps = "".join(f"<li>{e(s)}</li>" for s in m.instruktioner)
         parts.append(f"<details><summary>Recept</summary><ul>{ingr}</ul><ol>{steps}</ol></details>")
 
-    parts.append(f"<h2>Willys Vagnhärad – {_kr(res.willys_total)}</h2><table cellpadding='4' style='border-collapse:collapse;font-size:14px'>")
+    parts.append(f"<h2>{e(res.willys_namn)} – {_kr(res.willys_total)}</h2><table cellpadding='4' style='border-collapse:collapse;font-size:14px'>")
     parts.append("<tr style='text-align:left;border-bottom:1px solid #ccc'><th>Vara</th><th>Produkt</th><th>Antal</th><th>Pris</th></tr>")
     for l in res.lines:
         if l.buy_at_ica:

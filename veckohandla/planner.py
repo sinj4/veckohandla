@@ -73,6 +73,15 @@ def _offers_block(offers: list[Offer]) -> str:
     return "\n\n".join(parts)
 
 
+def _dagar(n: int) -> str:
+    """Vilka dagar middagarna gäller, härlett från middagar_per_vecka."""
+    if n == 5:
+        return "Dagar: måndag–fredag."
+    if n == 7:
+        return "Dagar: måndag–söndag."
+    return f"Välj själv vilka {n} veckodagar middagarna gäller."
+
+
 class Planner:
     """Anropar Claude via API-nyckel om ANTHROPIC_API_KEY finns, annars via Claude Code (Pro-inloggning)."""
 
@@ -121,12 +130,17 @@ class Planner:
 
     def plan_week(self, offers: list[Offer], cfg: dict, previous_dishes: list[str]) -> Veckoplan:
         h = cfg["hushall"]
-        barn = ", ".join(f"{a} år" for a in h["barn"])
+        barn = h.get("barn") or []
         system = (
-            "Du är en svensk matplanerare som gör billiga, goda och barnvänliga veckomenyer "
+            f"Du är en svensk matplanerare som gör billiga, goda{' och barnvänliga' if barn else ''} veckomenyer "
             "genom att utgå från butikernas veckokampanjer. Svara på svenska."
         )
-        prompt = f"""Planera {h['middagar_per_vecka']} middagar (måndag–fredag) för {h['vuxna']} vuxna och barn ({barn}), {h['portioner_per_middag']} portioner per middag.
+        personer = f"{h['vuxna']} vuxna"
+        if barn:
+            personer += f" och barn ({', '.join(f'{a} år' for a in barn)})"
+        barnregel = " och använd bara varor som barnen rimligen äter" if barn else ""
+        prompt = f"""Planera {h['middagar_per_vecka']} middagar för {personer}, {h['portioner_per_middag']} portioner per middag.
+{_dagar(h['middagar_per_vecka'])}
 
 Önskemål: {h['preferenser'].strip()}
 UNDVIK ALLTID (hårt krav, inga undantag): {'; '.join(h['undvik']) or 'inget särskilt'}
@@ -134,7 +148,7 @@ Finns alltid hemma (ska inte stå på inköpslistan): {', '.join(cfg['skafferi']
 Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or 'inga'}
 
 Bygg huvudsakligen på kampanjvarorna nedan, särskilt protein och grönsaker. Läs varunamnen exakt
-(t.ex. är kycklinglever inte kycklingfilé) och använd bara varor som barnen rimligen äter.
+(t.ex. är kycklinglever inte kycklingfilé){barnregel}.
 Willys-kampanjerna gäller e-handeln där allt handlas; ICA-butikernas kampanjer går bara att köpa i butik,
 så använd dem bara när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
