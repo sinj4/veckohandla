@@ -61,6 +61,10 @@ class FejkSession:
     def product_details(self, code):
         return {"ingredients": ""}
 
+    def kolla(self, code):
+        finns = self.tillganglig(code)
+        return finns, (self.product_details(code) if finns else None)
+
 
 @pytest.fixture
 def miljo(data_dir, monkeypatch):
@@ -118,3 +122,71 @@ def test_tillganglighet_503_behaller_alternativet_och_flaggar(miljo, monkeypatch
     assert agg.product.code == "ägg_ST" and agg.tillganglighet_okand and not agg.bortvalda
     assert not mjolk.tillganglighet_okand
     assert "Kunde inte kontrollera om varan finns i butiken" in report.render(res)
+
+
+def test_hogst_ett_get_per_produkt_och_korning(data_dir, monkeypatch):
+    import collections
+    import json
+
+    import httpx
+
+    from veckohandla.planner import Reserv
+    from veckohandla.stores import http, willys
+
+    monkeypatch.setattr(pipeline.time, "sleep", lambda s: None)
+    monkeypatch.setattr(http, "_sleep", lambda s: None)
+    monkeypatch.setattr(pipeline, "fetch_all_offers", lambda cfg, v: [])
+
+    sidor = {
+        "A_ST": {"ingredients": "Gris- och nötkött", "googleAnalyticsCategory": "fardigmat|x"},
+        "B_ST": {"ingredients": "Nötkött", "googleAnalyticsCategory": "fardigmat|x"},
+        "C_ST": {"ingredients": "Nötkött, lök", "googleAnalyticsCategory": "fardigmat|x"},
+    }
+    get_p = collections.Counter()
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        p = req.url.path
+        if p == "/axfood/rest/csrf-token":
+            return httpx.Response(200, json="t")
+        if p == "/axfood/rest/v2/store/activate":
+            return httpx.Response(200, json={})
+        if p == "/axfood/rest/v2/store/active":
+            return httpx.Response(200, json={"storeId": "2341"})
+        if p == "/search":
+            return httpx.Response(200, json={"results": [
+                {"code": c, "name": f"Vara {c}", "priceValue": 10.0, "online": True} for c in ("A_ST", "B_ST", "C_ST", "D_ST")]})
+        if p.startswith("/axfood/rest/p/"):
+            code = p.rsplit("/", 1)[1]
+            get_p[code] += 1
+            return httpx.Response(200, json=sidor[code]) if code in sidor else httpx.Response(404)
+        return httpx.Response(500)
+
+    monkeypatch.setattr(willys, "_client",
+                        lambda: httpx.Client(base_url=willys.BASE, transport=httpx.MockTransport(handler)))
+
+    class Planerare(FejkPlanerare):
+        def plan_week(self, *a):
+            rader = [Inkopsrad(vara=v, behov="1 st", sokord=v, till=["Måndag"]) for v in ("bullar", "färs", "saknas")]
+            return Veckoplan(middagar=[], inkopslista=rader, kommentar="")
+
+        def choose_products(self, rows, cands, ica, undvik):
+            r = lambda *k: [Reserv(kod=x, antal=1) for x in k]
+            return Produktval(val=[
+                Val(rad=0, willys_kod="A_ST", willys_antal=1, ica_butik=None, motivering="", willys_reserver=r("B_ST", "C_ST")),
+                Val(rad=1, willys_kod="B_ST", willys_antal=1, ica_butik=None, motivering="", willys_reserver=r("C_ST")),
+                Val(rad=2, willys_kod="D_ST", willys_antal=1, ica_butik=None, motivering=""),
+            ])
+
+    monkeypatch.setattr(pipeline, "Planner", Planerare)
+    cfg = {**CFG, "hushall": {"sparrord": ["gris"]}}
+    res = pipeline.run(cfg, log=lambda *a: None)
+
+    assert dict(get_p) == {"A_ST": 1, "B_ST": 1, "C_ST": 1, "D_ST": 1}
+    rad0, rad1, rad2 = res.lines
+    assert rad0.product.code == "B_ST" and rad0.bortvalda[0][1] == "innehåller gris"
+    assert [r.product.code for r in rad0.reserver] == ["C_ST"]
+    assert rad1.product.code == "B_ST"
+    assert rad2.product is None and "finns inte i butiken" in rad2.borttagen
+    # Tillgänglighetsanropet fyllde ingredienscachen med datum
+    cache = json.loads((data_dir / "ingredienser-cache.json").read_text())
+    assert set(cache) == {"A_ST", "B_ST", "C_ST"} and all(v.get("hamtad") for v in cache.values())

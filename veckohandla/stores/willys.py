@@ -179,14 +179,22 @@ class WillysSession:
         self._valj_butik()
         return med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
 
-    def tillganglig(self, code: str) -> bool | None:
-        """Finns varan i butiken just nu? False vid 404 eller outOfStock, None om det inte gick att
-        avgöra (5xx efter omförsök, nätverksfel, trasigt svar). Cachas aldrig."""
+    def kolla(self, code: str) -> tuple[bool | None, dict | None]:
+        """Ett GET mot /axfood/rest/p/<kod>: (finns i butiken, produktdetaljer).
+
+        finns är False vid 404 eller outOfStock och None om det inte gick att avgöra (5xx efter
+        omförsök, nätverksfel, trasigt svar). Detaljerna (ingredienser, kategori) följer med när
+        sidan kunde läsas. Cachas aldrig.
+        """
         self._valj_butik()
         try:
             d = med_omforsok(lambda: self._c.get(f"/axfood/rest/p/{code}")).json()
         except httpx.HTTPStatusError as e:
-            return False if e.response.status_code == 404 else None
+            return (False if e.response.status_code == 404 else None), None
         except (httpx.TransportError, ValueError):
-            return None
-        return not d.get("outOfStock")
+            return None, None
+        return not d.get("outOfStock"), d
+
+    def tillganglig(self, code: str) -> bool | None:
+        """Finns varan i butiken just nu? Se kolla()."""
+        return self.kolla(code)[0]

@@ -73,17 +73,20 @@ class Ingredienskontroll:
             return False
         return (self.idag - hamtad).days < MAX_ALDER_DAGAR
 
+    def lagg_in(self, code: str, d: dict) -> None:
+        """Spara produktdetaljer som redan hämtats på annat håll (t.ex. vid tillgänglighetskontrollen)."""
+        self.cache[code] = {
+            "ingredients": d.get("ingredients") or "",
+            "kategori": (d.get("googleAnalyticsCategory") or "").split("|")[0],
+            "hamtad": self.idag.isoformat(),
+        }
+
     def _detaljer(self, code: str) -> dict:
         if not self._farsk(self.cache.get(code)):
             if not self._forsta:
                 time.sleep(PAUS_S)
             self._forsta = False
-            d = self.hamta(code)
-            self.cache[code] = {
-                "ingredients": d.get("ingredients") or "",
-                "kategori": (d.get("googleAnalyticsCategory") or "").split("|")[0],
-                "hamtad": self.idag.isoformat(),
-            }
+            self.lagg_in(code, self.hamta(code))
         return self.cache[code]
 
     def kontrollera(self, code: str) -> Kontroll:

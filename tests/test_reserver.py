@@ -187,6 +187,10 @@ def test_run_byter_till_reserv_och_sparar_reserver(data_dir, monkeypatch):
         def product_details(self, code):
             return {"ingredients": self.ingredienser.get(code, "")}
 
+        def kolla(self, code):
+            finns = self.tillganglig(code)
+            return finns, (self.product_details(code) if finns else None)
+
     monkeypatch.setattr(pipeline, "Planner", FejkPlanerare)
     cfg = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "Willys Test", "store_id": "1"}, "ica": []},
            "hushall": {"sparrord": ["gris"], "sparrord_ingredienser": ["skinka"]},

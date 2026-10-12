@@ -299,12 +299,12 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     willys_lines = [l for l in lines if l.alternativ and not l.buy_at_ica]
     if willys_lines:
         log("Kontrollerar tillgänglighet i butiken och ingredienser…")
-        with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json",
-                                             hamta=sess.product_details) as ik:
+        with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
+            sidor = Produktsidor(sess, ik)
+            ik.hamta = sidor.detaljer  # samma GET för tillgänglighet och ingredienser
             ingr = ik.kontrollera if ingr_ord else None
             for l in willys_lines:
-                finns = _pausad(sess.tillganglig) if sess.butik_vald else (lambda code: True)
-                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_alternativ(l.alternativ, finns, ingr)
+                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_alternativ(l.alternativ, sidor.finns, ingr)
                 if valt is None:
                     l.product, l.qty, l.willys_cost = None, 0, None
                     l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
@@ -349,13 +349,38 @@ def _korgrad(p: Product, qty: int) -> dict:
     return {"code": p.code, "qty": qty, "pick_unit": p.extra.get("pickUnit", "pieces"), "name": p.name, "size": p.size}
 
 
-def _pausad(f: Callable[[str], bool | None]) -> Callable[[str], bool | None]:
-    """Tillgänglighetsanrop med paus emellan – var snäll mot Willys."""
-    def g(code: str) -> bool | None:
-        res = f(code)
-        time.sleep(0.5)
-        return res
-    return g
+class Produktsidor:
+    """Högst ett GET mot /axfood/rest/p/<kod> per produkt och körning.
+
+    Tillgänglighetsanropet lägger ingredienser och kategori i ingredienscachen, så att
+    ingredienskontrollen inte hämtar samma sida igen. Svaren sparas bara under körningen –
+    tillgängligheten cachas aldrig mellan körningar.
+    """
+
+    PAUS_S = 0.5
+
+    def __init__(self, sess: willys.WillysSession, ik: ingredienser.Ingredienskontroll):
+        self.sess, self.ik = sess, ik
+        self._svar: dict[str, tuple[bool | None, dict | None]] = {}
+
+    def _hamta(self, code: str) -> tuple[bool | None, dict | None]:
+        if code not in self._svar:
+            self._svar[code] = finns, d = self.sess.kolla(code)
+            if d is not None:
+                self.ik.lagg_in(code, d)
+            time.sleep(self.PAUS_S)  # var snäll mot Willys
+        return self._svar[code]
+
+    def finns(self, code: str) -> bool | None:
+        if not self.sess.butik_vald:
+            return True  # utan vald butik säger tillgängligheten inget
+        return self._hamta(code)[0]
+
+    def detaljer(self, code: str) -> dict:
+        d = self._hamta(code)[1]
+        if d is None:
+            raise LookupError(f"Kunde inte läsa produktsidan för {code}")
+        return d
 
 
 class IngenKorg(RuntimeError):
