@@ -75,9 +75,13 @@ def main() -> int:
     from .cart import NotLoggedIn
 
     if args.cmd == "fyll-varukorg":
-        from .pipeline import DATA, fill_saved_cart
+        from .pipeline import IngenKorg, fill_saved_cart, latest_cart_week
 
-        week = args.vecka or max(DATA.glob("*-korg.json")).stem.removesuffix("-korg")
+        try:
+            week = args.vecka or latest_cart_week()
+        except IngenKorg as e:
+            print(e, file=sys.stderr)
+            return 1
         try:
             res = fill_saved_cart(week)
         except NotLoggedIn as e:
@@ -88,8 +92,8 @@ def main() -> int:
             print(f"Kom inte med: {', '.join(res['missing'])}")
         return 0
 
-    from . import report
-    from .pipeline import DATA, run
+    from . import pipeline, report
+    from .pipeline import run
 
     try:
         res = run(cfg, fill_cart=args.fyll_varukorg)
@@ -98,7 +102,7 @@ def main() -> int:
         return 2
 
     page = report.render(res)
-    out = DATA / f"{res.week}.html"
+    out = pipeline.DATA / f"{res.week}.html"
     out.write_text(page)
     print(f"Rapport: {out}")
     print(f"Willys: {res.willys_total:.2f} kr, ICA-butikslistor: {res.ica_total:.2f} kr")

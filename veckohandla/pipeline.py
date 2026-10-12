@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,7 +13,12 @@ from .models import Offer, Product
 from .planner import Inkopsrad, Planner, Val, Veckoplan
 from .stores import ica, willys
 
-DATA = Path(__file__).resolve().parent.parent / "data"
+# Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
+DATA = Path(os.environ.get("VECKOHANDLA_DATA") or Path(__file__).resolve().parent.parent / "data")
+
+# Veckoplaner heter t.ex. 2026-v42.json; korgfiler (2026-v42-korg.json) och cache ska inte matcha
+PLAN_GLOB = "*-v[0-9][0-9].json"
+KORG_GLOB = "*-v[0-9][0-9]-korg.json"
 
 
 @dataclass
@@ -48,7 +54,7 @@ def week_id(today: dt.date | None = None) -> str:
 
 def previous_dishes(weeks: int = 3) -> list[str]:
     current = week_id()
-    files = [f for f in sorted(DATA.glob("*-v*.json")) if f.stem != current][-weeks:]
+    files = [f for f in sorted(DATA.glob(PLAN_GLOB)) if f.stem != current][-weeks:]
     dishes = []
     for f in files:
         dishes += [m["ratt"] for m in json.loads(f.read_text())["middagar"]]
@@ -149,6 +155,18 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     if fill_cart:
         result.cart = fill_saved_cart(result.week, log)
     return result
+
+
+class IngenKorg(RuntimeError):
+    pass
+
+
+def latest_cart_week() -> str:
+    """Senaste veckan som har en sparad korgfil, t.ex. '2026-v42'."""
+    files = sorted(DATA.glob(KORG_GLOB))
+    if not files:
+        raise IngenKorg(f"Hittade ingen sparad korg i {DATA} – kör först: python -m veckohandla kor")
+    return files[-1].stem.removesuffix("-korg")
 
 
 def fill_saved_cart(week: str, log=print) -> dict:
