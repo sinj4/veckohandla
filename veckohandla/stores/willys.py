@@ -137,7 +137,8 @@ class WillysSession:
     def __init__(self, store_id: str, client: httpx.Client | None = None):
         self.store_id = str(store_id)
         self._c = client or _client()
-        self._vald = False
+        self._forsokt = False
+        self.butik_vald = False
 
     def __enter__(self) -> WillysSession:
         return self
@@ -148,9 +149,9 @@ class WillysSession:
     def close(self) -> None:
         self._c.close()
 
-    def _valj_butik(self) -> None:
-        if self._vald:
-            return
+    def valj_butik(self) -> None:
+        """Välj butik i sessionen. Kastar vid fel; sessionen används då utan vald butik."""
+        self._forsokt = True
         tok = med_omforsok(lambda: self._c.get("/axfood/rest/csrf-token")).json()
         med_omforsok(lambda: self._c.post(
             "/axfood/rest/v2/store/activate",
@@ -162,7 +163,12 @@ class WillysSession:
             raise ButiksvalMisslyckades(
                 f"Willys valde butik {aktiv.get('storeId')!r} i stället för {self.store_id} – har API:t ändrats?"
             )
-        self._vald = True
+        self.butik_vald = True
+
+    def _valj_butik(self) -> None:
+        # Bara ett försök per session – misslyckas det fortsätter sessionen utan vald butik
+        if not self._forsokt:
+            self.valj_butik()
 
     def search(self, query: str, store_name: str, limit: int = 8) -> list[Product]:
         self._valj_butik()

@@ -174,6 +174,7 @@ def test_run_byter_till_reserv_och_sparar_reserver(data_dir, monkeypatch):
             ])
 
     class FejkSession:
+        butik_vald = True
         sortiment = {"vitlök": ["SOLO_KG", "KAPSEL_ST", "FLATA_ST"], "köttbullar": ["BULLAR_ST"], "ost": ["OST_ST", "SKINKOST_ST"]}
         ingredienser = {"BULLAR_ST": "Gris- och nötkött", "SKINKOST_ST": "ost, skinka"}
 

@@ -198,20 +198,33 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
 
 
 def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
-    # En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik
+    # En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik.
+    # Butiken väljs först, innan något Claude-anrop görs.
+    varningar: list[str] = []
     with willys.WillysSession(cfg["butiker"]["willys"]["store_id"]) as sess:
-        return _run(cfg, sess, fill_cart, log)
+        log("Väljer Willys-butik…")
+        try:
+            sess.valj_butik()
+        except Exception as e:
+            varningar.append(f"Kunde inte välja butik, sökningen gäller hela Willys sortiment ({e})")
+            log(f"  VARNING: {varningar[-1]}")
+        return _run(cfg, sess, fill_cart, log, varningar)
 
 
-def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
+class AllaSokningarMisslyckades(RuntimeError):
+    pass
+
+
+def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
     c = cfg["claude"]
     planner = Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
     willys_name = cfg["butiker"]["willys"]["namn"]
 
     log("Hämtar veckans kampanjer…")
-    varningar: list[str] = []
+    varningar = varningar if varningar is not None else []
+    fore_kampanjer = len(varningar)
     offers = fetch_all_offers(cfg, varningar)
-    for v in varningar:
+    for v in varningar[fore_kampanjer:]:
         log(f"  VARNING: {v}")
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     offers = [o for o in offers if not _blocked(f"{o.name} {o.brand}", sparrord)]
@@ -234,18 +247,29 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
         for a in cfg.get("alltid_kop", [])
     ]
 
-    log(f"Söker {len(rows)} varor i Willys sortiment…")
+    # Utan vald butik söks hela sortimentet; reserver och failed-hanteringen tar hand om det som saknas
+    sok = sess.search if sess.butik_vald else willys.search
+    log(f"Söker {len(rows)} varor i Willys sortiment{'' if sess.butik_vald else ' (utan vald butik)'}…")
     candidates: list[list[Product]] = []
+    misslyckade = 0
+    senaste_fel: Exception | None = None
     for r in rows:
         try:
-            found = sess.search(r.sokord, willys_name)
+            found = sok(r.sokord, willys_name)
             if not found and r.vara.lower() != r.sokord.lower():
-                found = sess.search(r.vara, willys_name)
+                found = sok(r.vara, willys_name)
             candidates.append([p for p in found if not _blocked(p.name, sparrord)])
         except Exception as e:  # en enskild sökning ska inte stoppa hela körningen
             log(f"  sökning misslyckades för {r.sokord!r}: {e}")
             candidates.append([])
+            misslyckade += 1
+            senaste_fel = e
         time.sleep(0.5)
+    if rows and misslyckade == len(rows):
+        raise AllaSokningarMisslyckades(
+            f"Alla {len(rows)} sökningar mot Willys misslyckades – avbryter innan produktvalet. "
+            f"Senaste fel: {senaste_fel}"
+        )
 
     log("Väljer produkter och jämför med ICA-kampanjer…")
     ica_offers = [o for o in offers if o.store != willys_name]
@@ -276,7 +300,8 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log) -> Result:
                                              hamta=sess.product_details) as ik:
             ingr = ik.kontrollera if ingr_ord else None
             for l in willys_lines:
-                valt, l.bortvalda, l.kontrollera = valj_alternativ(l.alternativ, _pausad(sess.tillganglig), ingr)
+                finns = _pausad(sess.tillganglig) if sess.butik_vald else (lambda code: True)
+                valt, l.bortvalda, l.kontrollera = valj_alternativ(l.alternativ, finns, ingr)
                 if valt is None:
                     l.product, l.qty, l.willys_cost = None, 0, None
                     l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
