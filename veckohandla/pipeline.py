@@ -155,7 +155,8 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
     result.ica_total = round(sum(l.ica.ica_kostnad_kr for l in lines if l.buy_at_ica), 2)
 
     cart_lines = [
-        {"code": l.product.code, "qty": l.qty, "pick_unit": l.product.extra.get("pickUnit", "pieces"), "name": l.product.name}
+        {"code": l.product.code, "qty": l.qty, "pick_unit": l.product.extra.get("pickUnit", "pieces"),
+         "name": l.product.name, "size": l.product.size}
         for l in lines
         if l.product and not l.buy_at_ica and l.qty > 0
     ]
@@ -196,4 +197,6 @@ def fill_saved_cart(week: str, log=print) -> dict:
 
     saved = json.loads((DATA / f"{week}-korg.json").read_text())
     log(f"Lägger {len(saved)} varor i Willys-varukorgen…")
-    return fill_willys([CartLine(x["code"], x["qty"], x["pick_unit"]) for x in saved])
+    return fill_willys([
+        CartLine(x["code"], x["qty"], x["pick_unit"], x.get("name", ""), x.get("size", "")) for x in saved
+    ])

@@ -46,7 +46,9 @@ def render(res: Result) -> str:
         missing = res.cart.get("missing") or []
         msg = f"✅ Varukorgen på Willys är fylld (korgens total: {e(str(res.cart.get('total')))})."
         if missing:
-            msg += f" ⚠️ {len(missing)} varor kom inte med: {e(', '.join(missing))}."
+            msg += f" ⚠️ {len(missing)} varor kom inte med eller fick för lågt antal: {e(', '.join(missing))}."
+        if res.cart.get("annan_enhet"):
+            msg += f" Fanns redan i annan enhet och rördes inte: {e(', '.join(res.cart['annan_enhet']))}."
         msg += " Gå in på <a href='https://www.willys.se/'>willys.se</a>, välj tid och beställ."
         parts.append(f"<p style='background:#eef7ee;padding:12px;border-radius:8px'>{msg}</p>")
 
