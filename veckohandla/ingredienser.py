@@ -7,6 +7,7 @@ färdiglagade köttbullar ("Gris- och nötkött 73 %"). Här läses ingrediensli
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import time
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from typing import Callable
 # Toppkategorier (första ledet i googleAnalyticsCategory) där saknad ingrediensuppgift ska flaggas
 RISK_KATEGORIER = ("kott-chark-och-fagel", "fardigmat")
 PAUS_S = 0.5
+MAX_ALDER_DAGAR = 30  # ingredienslistor kan ändras – hämta på nytt efter så här många dagar
 
 
 @dataclass
@@ -36,8 +38,15 @@ class Ingredienskontroll:
     Cachen läses en gång och skrivs med spara() (eller när with-blocket lämnas).
     """
 
-    def __init__(self, ord: list[str], cache_path: Path, hamta: Callable[[str], dict] = _hamta_willys):
+    def __init__(
+        self,
+        ord: list[str],
+        cache_path: Path,
+        hamta: Callable[[str], dict] = _hamta_willys,
+        idag: dt.date | None = None,
+    ):
         self.ord = [o.lower() for o in ord if o]
+        self.idag = idag or dt.date.today()
         self.cache_path = cache_path
         self.hamta = hamta
         self._forsta = True
@@ -56,8 +65,16 @@ class Ingredienskontroll:
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
         self.cache_path.write_text(json.dumps(self.cache, ensure_ascii=False, indent=1))
 
+    def _farsk(self, post: dict | None) -> bool:
+        """Poster utan hämtningsdatum räknas som gamla."""
+        try:
+            hamtad = dt.date.fromisoformat(post["hamtad"])
+        except (TypeError, KeyError, ValueError):
+            return False
+        return (self.idag - hamtad).days < MAX_ALDER_DAGAR
+
     def _detaljer(self, code: str) -> dict:
-        if code not in self.cache:
+        if not self._farsk(self.cache.get(code)):
             if not self._forsta:
                 time.sleep(PAUS_S)
             self._forsta = False
@@ -65,6 +82,7 @@ class Ingredienskontroll:
             self.cache[code] = {
                 "ingredients": d.get("ingredients") or "",
                 "kategori": (d.get("googleAnalyticsCategory") or "").split("|")[0],
+                "hamtad": self.idag.isoformat(),
             }
         return self.cache[code]
 

@@ -67,3 +67,39 @@ def test_paus_mellan_anrop(tmp_path, monkeypatch):
     ingredienser.kontrollera(["ZUCCHINI_ST", "KOTTBULLAR_ST", "SKINKPIZZA_ST"], ORD, tmp_path / "c.json",
                              lambda c: DETALJER[c])
     assert sovit == [0.5, 0.5]  # ingen paus före första anropet
+
+
+def test_cache_hamtas_pa_nytt_efter_30_dagar(tmp_path):
+    import datetime as dt
+
+    cache = tmp_path / "cache.json"
+    anrop = []
+
+    def hamta(code):
+        anrop.append(code)
+        return DETALJER[code]
+
+    start = dt.date(2026, 10, 1)
+    ingredienser.kontrollera(["KOTTBULLAR_ST"], ORD, cache, hamta)  # skriver dagens datum – byts nedan
+    data = json.loads(cache.read_text())
+    data["KOTTBULLAR_ST"]["hamtad"] = start.isoformat()
+    data["GAMMAL_UTAN_DATUM_ST"] = {"ingredients": "", "kategori": ""}
+    cache.write_text(json.dumps(data))
+    anrop.clear()
+
+    def kor(dag, code):
+        with ingredienser.Ingredienskontroll(ORD, cache, hamta, idag=dag) as k:
+            return k.kontrollera(code)
+
+    kor(start + dt.timedelta(days=29), "KOTTBULLAR_ST")
+    assert anrop == []  # 29 dagar: fortfarande färsk
+    kor(start + dt.timedelta(days=30), "KOTTBULLAR_ST")
+    assert anrop == ["KOTTBULLAR_ST"]  # 30 dagar: hämtas på nytt
+    assert json.loads(cache.read_text())["KOTTBULLAR_ST"]["hamtad"] == "2026-10-31"
+
+    DETALJER["GAMMAL_UTAN_DATUM_ST"] = {"ingredients": "", "googleAnalyticsCategory": ""}
+    try:
+        kor(start, "GAMMAL_UTAN_DATUM_ST")
+        assert anrop[-1] == "GAMMAL_UTAN_DATUM_ST"  # utan datum räknas som gammal
+    finally:
+        del DETALJER["GAMMAL_UTAN_DATUM_ST"]

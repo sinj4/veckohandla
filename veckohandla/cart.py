@@ -70,11 +70,26 @@ def i_korgen(cart: dict) -> dict[str, tuple[float, str]]:
     return out
 
 
+def summera(lines: list[CartLine]) -> list[CartLine]:
+    """Slå ihop rader med samma produktkod och plockenhet (t.ex. bananer både i alltid_kop och ett recept).
+
+    Namn, storlek och reserver tas från första raden.
+    """
+    out: dict[tuple[str, str], CartLine] = {}
+    for l in lines:
+        key = (l.code, l.pick_unit)
+        if key in out:
+            out[key].qty += l.qty
+        else:
+            out[key] = CartLine(l.code, l.qty, l.pick_unit, l.name, l.size, list(l.reserver))
+    return list(out.values())
+
+
 def korg_diff(onskat: list[CartLine], cart: dict) -> KorgDiff:
-    """Räkna ut vad som behöver läggas till för att korgen ska innehålla minst `onskat`."""
+    """Räkna ut vad som behöver läggas till för att korgen ska innehålla minst `onskat` (summerat per kod)."""
     finns = i_korgen(cart)
     diff = KorgDiff()
-    for line in onskat:
+    for line in summera(onskat):
         have, unit = finns.get(line.code, (0.0, line.pick_unit))
         if line.code in finns and unit != line.pick_unit:
             diff.annan_enhet.append(line)
@@ -107,6 +122,7 @@ def fyll_korg(
 
     `las_korg()` ger svaret från GET /axfood/rest/cart, `lagg_till(payload)` ger {"failed": [...], "cart": {...}}.
     """
+    lines = summera(lines)
     diff = korg_diff(lines, las_korg())
     if diff.att_lagga:
         res = lagg_till(_payload(diff.att_lagga))
@@ -155,7 +171,7 @@ def sammanfatta(
     finns = i_korgen(cart)
     by_code = namn or {l.code: l for l in lines}
     annan = {l.code for l in diff.annan_enhet}
-    for_lite = [l for l in lines if l.code not in annan and finns.get(l.code, (0.0, ""))[0] < l.qty]
+    for_lite = [l for l in summera(lines) if l.code not in annan and finns.get(l.code, (0.0, ""))[0] < l.qty]
     return {
         "total": cart.get("totalPrice"),
         "discount": cart.get("totalDiscount"),

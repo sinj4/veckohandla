@@ -57,3 +57,24 @@ def test_sammanfatta_visar_namn_och_kontrollerar_antal():
     assert res["failed"] == ["Vitlök Solo ca: 20g"]
     assert res["missing"] == ["Zucchini", "Vitlök Solo ca: 20g"]  # B fick för lågt antal trots 200
     assert res["tillagda"] == 3
+
+
+def test_korg_diff_summerar_rader_med_samma_kod():
+    # Bananer både i alltid_kop (8) och i ett recept (4); korgen har redan 10
+    korg = {"products": [rad("100254920_KG", 10, gram=1800)]}
+    onskat = [CartLine("100254920_KG", 8, name="Banan"), CartLine("100254920_KG", 4, name="Banan")]
+    d = korg_diff(onskat, korg)
+    assert [(l.code, l.qty) for l in d.att_lagga] == [("100254920_KG", 2)]
+    assert onskat[0].qty == 8  # originalraderna ändras inte
+
+
+def test_korg_diff_summerar_inte_olika_plockenheter():
+    d = korg_diff([CartLine("X_KG", 2, "pieces"), CartLine("X_KG", 1, "kilogram")], {"products": []})
+    assert sorted((l.pick_unit, l.qty) for l in d.att_lagga) == [("kilogram", 1), ("pieces", 2)]
+
+
+def test_sammanfatta_kontrollerar_summerat_antal():
+    onskat = [CartLine("B_ST", 2, name="Banan"), CartLine("B_ST", 2, name="Banan")]
+    d = korg_diff(onskat, {"products": []})
+    res = sammanfatta(onskat, d, [], {"products": [rad("B_ST", 3)]})
+    assert res["missing"] == ["Banan"]  # 3 i korgen räcker inte för 2 + 2
