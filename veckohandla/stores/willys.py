@@ -83,7 +83,10 @@ def _tolka_promo(pr: dict, weight: float | None) -> tuple[int, float, str, int |
     qty = pr.get("qualifyingCount") or 1
     # Sök-API:t anger styckpris i ett objekt ("2 för 15" -> value 7.5), kampanj-API:erna totalpris som tal
     price = pr["price"]
-    total = float(price["value"]) * qty if isinstance(price, dict) else float(price)
+    try:
+        total = float(price["value"]) * qty if isinstance(price, dict) else float(price)
+    except (TypeError, ValueError, KeyError):
+        return None  # t.ex. tomt prisobjekt – kampanjen går inte att tolka
     if weight:
         total = round(total * weight, 2)
     text = f"{pr.get('conditionLabel') or ''} {pr.get('rewardLabel') or ''}".strip()

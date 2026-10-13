@@ -132,3 +132,11 @@ def test_ger_upp_efter_tre_forsok(monkeypatch):
 def test_js_object_tal_mellanslag():
     html = '<script>window.X = {"a": undefined, "b": [1, undefined ], "c": new Map([])};</script>'
     assert ica._js_object(html, "window.X = ") == {"a": None, "b": [1, None], "c": None}
+
+
+def test_tolka_promo_med_tomt_prisobjekt():
+    # Riktig post (Potatisbröd): price-objektet saknar value
+    pr = {"price": {"currencyIso": None, "value": None}, "qualifyingCount": None, "rewardLabel": "24,90/st"}
+    assert willys._tolka_promo(pr, None) is None
+    o = willys._to_offer({"code": "X_ST", "name": "Potatisbröd", "potentialPromotions": [pr]}, "W")
+    assert o.promo_qty is None and o.kostnad(1) is None
