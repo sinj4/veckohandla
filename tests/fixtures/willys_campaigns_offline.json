@@ -1,0 +1,287 @@
+{
+ "results": [
+  {
+   "offlinePromotionLowestHistoricalPrice": null,
+   "displayVolume": "800g",
+   "priceNoUnit": "99,90",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/f_auto,q_auto/v1/promotionImagesWillys/27114561306654",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/st",
+   "googleAnalyticsCategory": "",
+   "online": false,
+   "showGoodPriceIcon": false,
+   "title": "2642 W+ LOJALITET WIL",
+   "ranking": 320.81635718034,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/w_100,h_100,c_fill,f_auto,q_auto/v1/promotionImagesWillys/27114561306654",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/w_198,h_198,c_fill,f_auto,q_auto/v1/promotionImagesWillys/27114561306654",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 320.81635,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "potentialPromotions": [
+    {
+     "brands": null,
+     "promotionPercentage": null,
+     "promotionRedeemLimit": 3,
+     "code": "2500319012",
+     "threshold": null,
+     "endDate": "18/10-2026",
+     "validUntil": 1792360799000,
+     "mainProductCode": "101840286_ST",
+     "discountPrice": null,
+     "splashTitleText": "Kampanj",
+     "redeemLimitLabel": "Max 3 köp",
+     "realMixAndMatch": false,
+     "qualifyingCount": 1,
+     "cartLabel": "79,90/st ",
+     "timesUsed": null,
+     "conditionLabel": null,
+     "rewardLabel": "79,90/st",
+     "textLabel": "",
+     "comparePrice": "99:88 kr/kg",
+     "price": 79.9,
+     "productCodes": null,
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelGenerated": "",
+     "weightVolume": "800g",
+     "sorting": null,
+     "redeemLimit": 3,
+     "campaignType": "LOYALTY",
+     "startDate": "12/10-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z060",
+      "visible": null
+     },
+     "savePrice": "Spara 20,00 kr",
+     "name": "Nötfärs",
+     "priority": null,
+     "description": "Irland • 20%"
+    }
+   ],
+   "manufacturer": null,
+   "price": "99,90 kr",
+   "lowestHistoricalPrice": null,
+   "name": "Nötfärs",
+   "labels": null
+  },
+  {
+   "offlinePromotionLowestHistoricalPrice": "14,90 kr/st",
+   "displayVolume": "410/200g",
+   "priceNoUnit": "14,90",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/f_auto,q_auto/v1/promotionImagesWillys/27114564452382",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/st",
+   "googleAnalyticsCategory": "",
+   "online": false,
+   "showGoodPriceIcon": false,
+   "title": "2642 W+ LOJALITET WIL",
+   "ranking": 320.77635980178,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/w_100,h_100,c_fill,f_auto,q_auto/v1/promotionImagesWillys/27114564452382",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://res.cloudinary.com/willys-eu/image/upload/w_198,h_198,c_fill,f_auto,q_auto/v1/promotionImagesWillys/27114564452382",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 320.77637,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "potentialPromotions": [
+    {
+     "brands": [
+      "SPICEFIELD"
+     ],
+     "promotionPercentage": null,
+     "promotionRedeemLimit": 5,
+     "code": "2500318997",
+     "threshold": null,
+     "endDate": "18/10-2026",
+     "validUntil": 1792360799000,
+     "mainProductCode": "101285964_ST",
+     "discountPrice": null,
+     "splashTitleText": "",
+     "redeemLimitLabel": "Max 5 köp",
+     "realMixAndMatch": false,
+     "qualifyingCount": 2,
+     "cartLabel": "2 för 22,00",
+     "timesUsed": null,
+     "conditionLabel": "2 för",
+     "rewardLabel": "22,00",
+     "textLabel": "",
+     "comparePrice": "55:00 kr/kg",
+     "price": 22.0,
+     "productCodes": null,
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelGenerated": "",
+     "weightVolume": "410/200g",
+     "sorting": null,
+     "redeemLimit": 5,
+     "campaignType": "LOYALTY",
+     "startDate": "12/10-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z020",
+      "visible": null
+     },
+     "savePrice": "Spara 7,80 kr",
+     "name": "Bambuskott",
+     "priority": null,
+     "description": null
+    }
+   ],
+   "manufacturer": "SPICEFIELD",
+   "price": "14,90 kr",
+   "lowestHistoricalPrice": null,
+   "name": "Bambuskott",
+   "labels": [
+    "keyhole"
+   ]
+  },
+  {
+   "offlinePromotionLowestHistoricalPrice": null,
+   "displayVolume": "1,5l",
+   "priceNoUnit": "19,40",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/05000112689792_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/st",
+   "googleAnalyticsCategory": "",
+   "online": false,
+   "showGoodPriceIcon": true,
+   "title": "2632-44 ORD. MULTI WIL",
+   "ranking": 320.88223970706,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/05000112689792_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/05000112689792_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 320.88223,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "potentialPromotions": [
+    {
+     "brands": null,
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "code": "2500313730",
+     "threshold": null,
+     "endDate": "01/11-2026",
+     "validUntil": 1793573999000,
+     "mainProductCode": "101859661_ST",
+     "discountPrice": null,
+     "splashTitleText": "Alltid bra pris",
+     "redeemLimitLabel": "",
+     "realMixAndMatch": true,
+     "qualifyingCount": 3,
+     "cartLabel": "Välj & blanda! 3 för 53,00 +pant",
+     "timesUsed": null,
+     "conditionLabel": "3 för",
+     "rewardLabel": "53,00 +pant",
+     "textLabel": "",
+     "comparePrice": "11:78 kr/l +pant",
+     "price": 53.0,
+     "productCodes": null,
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelGenerated": "",
+     "weightVolume": "1,5l",
+     "sorting": null,
+     "redeemLimit": null,
+     "campaignType": "GENERAL",
+     "startDate": "03/08-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z019",
+      "visible": null
+     },
+     "savePrice": null,
+     "name": "Läsk 1,5l",
+     "priority": null,
+     "description": "Olika sorter"
+    }
+   ],
+   "manufacturer": "Coca-cola",
+   "price": "19,40 kr",
+   "lowestHistoricalPrice": null,
+   "name": "Läsk 1,5l",
+   "labels": null
+  }
+ ],
+ "pagination": {
+  "pageSize": 3,
+  "currentPage": 0,
+  "numberOfPages": 1,
+  "totalNumberOfResults": 3
+ }
+}

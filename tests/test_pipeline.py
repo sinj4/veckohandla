@@ -4,7 +4,7 @@ import pytest
 
 from veckohandla import pipeline
 from veckohandla.models import Offer, Product
-from veckohandla.pipeline import Line, filtrera_kategorier, tillampa_ica_troskel, _blocked
+from veckohandla.pipeline import Line, filtrera_kategorier, tillampa_butikstroskel, _blocked
 from veckohandla.planner import Inkopsrad, Val
 
 
@@ -45,30 +45,30 @@ def _rad(vara):
 
 def _line(vara, willys_kr, ica_kr, butik="ICA X"):
     prod = Product(store="W", code=f"{vara}_ST", name=vara, price=willys_kr) if willys_kr is not None else None
-    val = Val(rad=0, willys_kod=prod.code if prod else None, willys_antal=1, ica_butik=butik,
-              ica_erbjudande="kampanj", ica_antal=1, ica_kostnad_kr=ica_kr, motivering="")
-    return Line(row=_rad(vara), product=prod, qty=1, willys_cost=willys_kr, ica=val)
+    val = Val(rad=0, willys_kod=prod.code if prod else None, willys_antal=1, butik=butik,
+              butik_erbjudande="kampanj", butik_antal=1, butik_kostnad_kr=ica_kr, motivering="")
+    return Line(row=_rad(vara), product=prod, qty=1, willys_cost=willys_kr, butik=val)
 
 
 def test_ica_over_troskeln_behaller_listan():
     lines = [_line("lax", 120.0, 60.0), _line("ost", 80.0, 50.0)]
-    listor, spar = tillampa_ica_troskel(lines, 75)
+    listor, spar = tillampa_butikstroskel(lines, 75)
     assert [l.row.vara for l in listor["ICA X"]] == ["lax", "ost"]
     assert spar["ICA X"] == 90.0
 
 
 def test_ica_under_troskeln_flyttar_rader_med_willys_alternativ():
     lines = [_line("tomater", 83.7, 29.0), _line("specialost", None, 40.0)]
-    listor, spar = tillampa_ica_troskel(lines, 75)
+    listor, spar = tillampa_butikstroskel(lines, 75)
     # Tomaterna köps på Willys; bara raden utan Willys-alternativ blir kvar på ICA
-    assert lines[0].ica is None and not lines[0].buy_at_ica
+    assert lines[0].butik is None and not lines[0].i_butik
     assert [l.row.vara for l in listor["ICA X"]] == ["specialost"]
     assert spar["ICA X"] == 0.0
 
 
 def test_ica_under_troskeln_utan_rader_kvar_ger_ingen_lista():
     lines = [_line("tomater", 83.7, 29.0)]
-    listor, _ = tillampa_ica_troskel(lines, 75)
+    listor, _ = tillampa_butikstroskel(lines, 75)
     assert listor == {}
 
 

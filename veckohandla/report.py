@@ -76,7 +76,7 @@ def render(res: Result) -> str:
     parts.append(f"<h2>{e(res.willys_namn)} – {_kr(res.willys_total)}</h2><table cellpadding='4' style='border-collapse:collapse;font-size:14px'>")
     parts.append("<tr style='text-align:left;border-bottom:1px solid #ccc'><th>Vara</th><th>Produkt</th><th>Antal</th><th>Pris</th></tr>")
     for l in res.lines:
-        if l.buy_at_ica or l.row.kanske_hemma:
+        if l.i_butik or l.row.kanske_hemma:
             continue
         if l.borttagen:
             parts.append(
@@ -98,7 +98,7 @@ def render(res: Result) -> str:
             parts.append(f"<tr><td>{e(l.row.vara)}</td><td colspan='3' style='color:#c00'>Hittade ingen passande vara – köp manuellt</td></tr>")
     parts.append("</table>")
 
-    hemma = [l for l in res.lines if l.row.kanske_hemma and not l.buy_at_ica]
+    hemma = [l for l in res.lines if l.row.kanske_hemma and not l.i_butik]
     if hemma:
         parts.append("<h2>Kolla om du har hemma</h2><p style='color:#666;font-size:13px'>Ligger inte i korgen.</p><ul>")
         for l in hemma:
@@ -108,15 +108,33 @@ def render(res: Result) -> str:
                 parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)})</li>")
         parts.append("</ul>")
 
-    for store, lines in res.ica_lists.items():
-        saving = res.ica_savings.get(store)
+    i_butik = res.butik_listor.get(res.willys_i_butik_namn)
+    if i_butik:
+        saving = res.butik_besparing.get(res.willys_i_butik_namn)
+        if res.hamtar_i_butik:
+            under = "Köps när du hämtar ordern – ligger inte i e-handelskorgen."
+        else:
+            under = f"Kampanjer som bara gäller i butiken, sparar ca {_kr(saving)}. Ligger inte i e-handelskorgen."
+        parts.append(f"<h2>Willys i butik</h2><p style='color:#666;font-size:13px'>{e(under)}</p>")
+        parts.append("<table cellpadding='4' style='border-collapse:collapse;font-size:14px'>"
+                     "<tr style='text-align:left;border-bottom:1px solid #ccc'><th>Vara</th><th>Kampanj</th><th>Antal</th><th>Pris</th></tr>")
+        for l in i_butik:
+            pris = _kr(l.butik.butik_kostnad_kr) + ("" if l.butik.butik_kostnad_beraknad else " (uppskattat)")
+            parts.append(f"<tr><td>{e(l.row.vara)}</td><td>{e(l.butik.butik_erbjudande or '')}</td>"
+                         f"<td>{l.butik.butik_antal}</td><td>{pris}</td></tr>")
+        parts.append("</table>")
+
+    for store, lines in res.butik_listor.items():
+        if store == res.willys_i_butik_namn:
+            continue
+        saving = res.butik_besparing.get(store)
         rubrik = f"sparar ca {_kr(saving)}" if saving else "finns inte på Willys"
         parts.append(f"<h2>{e(store)} – i butik ({rubrik})</h2><ul>")
         for l in lines:
-            parts.append(f"<li>{e(l.row.vara)}: {e(l.ica.ica_erbjudande or '')} × {l.ica.ica_antal} ≈ {_kr(l.ica.ica_kostnad_kr)}</li>")
+            parts.append(f"<li>{e(l.row.vara)}: {e(l.butik.butik_erbjudande or '')} × {l.butik.butik_antal} ≈ {_kr(l.butik.butik_kostnad_kr)}</li>")
         parts.append("</ul>")
 
-    total = res.willys_total + res.ica_total
+    total = res.willys_total + res.butik_total
     parts.append(f"<h2>Totalt ca {_kr(total)}</h2></body></html>")
     return "\n".join(parts)
 

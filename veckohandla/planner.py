@@ -66,10 +66,15 @@ class Val(BaseModel):
         description="Högst 3 reservalternativ ur samma rads kandidater, bäst först, om huvudvalet inte finns "
         "eller inte godkänns. Samma krav som huvudvalet.",
     )
-    ica_butik: str | None = Field(description="ICA-butik om en ICA-kampanj är klart billigare, annars null")
-    ica_erbjudande: str | None = None
-    ica_antal: int = 0
-    ica_kostnad_kr: float | None = Field(default=None, description="Uppskattad kostnad på ICA för behovet")
+    butik: str | None = Field(
+        description="Butiken (exakt namn ur butikskampanjerna, ICA eller Willys i butik) om en butikskampanj "
+        "är klart billigare än e-handeln, annars null"
+    )
+    butik_kod: str | None = Field(default=None, description="Produktkoden i hakparentes för Willys i butik, annars null")
+    butik_erbjudande: str | None = None
+    butik_antal: int = 0
+    butik_kostnad_kr: float | None = Field(default=None, description="Uppskattad kostnad i butiken för behovet")
+    butik_kostnad_beraknad: bool = Field(default=False, description="Sätts av koden, inte av dig")
     motivering: str
 
 
@@ -165,8 +170,11 @@ Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or
 
 Bygg huvudsakligen på kampanjvarorna nedan, särskilt protein och grönsaker. Läs varunamnen exakt
 (t.ex. är kycklinglever inte kycklingfilé){barnregel}.
-Willys-kampanjerna gäller e-handeln där allt handlas; ICA-butikernas kampanjer går bara att köpa i butik,
-så använd dem bara när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
+Det finns tre sorters kampanjer:
+- Willys e-handel: läggs direkt i varukorgen. Huvudkällan.
+- Willys i butik: gäller bara i Willys-butiken och köps vid hämtning av ordern eller vid ett snabbt besök.
+  Använd dem när de är tydligt billigare än e-handelns motsvarighet.
+- ICA-butiker: kräver en egen resa, så använd dem bara när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
 
 Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
@@ -181,7 +189,7 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
         self,
         rows: list[Inkopsrad],
         candidates: list[list[Product]],
-        ica_offers: list[Offer],
+        butiks_offers: list[Offer],
         undvik: list[str],
     ) -> Produktval:
         system = (
@@ -192,7 +200,7 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
         for i, (row, cands) in enumerate(zip(rows, candidates)):
             c = "\n".join(f"  {p.describe()}" for p in cands) or "  (inga träffar)"
             blocks.append(f"[{i}] {row.vara} – behov {row.behov} – till: {', '.join(row.till)}\n{c}")
-        ica = "\n".join(f"- {o.store}: {o.short()}" for o in ica_offers)
+        butikskampanjer = "\n".join(f"- {o.store}: {f'[{o.code}] ' if o.code else ''}{o.short()}" for o in butiks_offers)
         prompt = f"""Välj för varje inköpsrad den Willys-produkt (kod) och det antal som täcker behovet billigast.
 - Antal: priset i listan gäller per förpackning, eller per styck för lösvikt märkt "per st" (vikten
   "ca: 2kg" är vikten per styck – 1 vitkålshuvud á 2 kg räcker till 750 g, 8 bananer = antal 8).
@@ -207,13 +215,15 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
   huvudvalet: samma sorts vara som passar rätten, inget av det som ska undvikas, och antalet räknat för
   reservens egen förpackningsstorlek (t.ex. 2 st á 500 g om huvudvalet var 1 st á 1 kg). Hellre färre
   reserver än en som inte passar.
-- Om en ICA-kampanj nedan är tydligt billigare för samma behov, ange ica_butik, ica_erbjudande, ica_antal
-  och uppskattad ica_kostnad_kr. Välj ändå en Willys-produkt som reserv.
+- Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är tydligt billigare för
+  samma behov: ange butik (exakt butiksnamn), butik_erbjudande, butik_antal och uppskattad
+  butik_kostnad_kr. För "Willys … (i butik)" ange även butik_kod (koden i hakparentes) – koden räknar
+  då kostnaden själv. Välj ändå en Willys-produkt i e-handeln som reserv.
 
 # Inköpsrader med Willys-kandidater
 {chr(10).join(blocks)}
 
-# ICA-kampanjer (bara i butik)
-{ica}
+# Butikskampanjer (ICA-butiker och Willys i butik – inte i e-handeln)
+{butikskampanjer}
 """
         return self._parse(prompt, Produktval, system, effort="medium", model=self.model_produkter)

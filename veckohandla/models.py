@@ -17,6 +17,29 @@ class Offer:
     category: str
     regular_price: str = ""
     online: bool | None = None
+    code: str = ""  # produktkod om butiken anger den (Willys)
+    size: str = ""
+    # Tolkad kampanj (Willys), för att räkna kostnad i koden i stället för att låta Claude uppskatta
+    promo_qty: int | None = None
+    promo_total: float | None = None
+    promo_max: int | None = None
+
+    def kostnad(self, antal: int) -> float | None:
+        """Kostnad för `antal` st enligt kampanjen, eller None om kampanjen inte går att tolka.
+
+        Utöver max per hushåll gäller ordinarie pris; saknas det kan kostnaden inte räknas.
+        """
+        if not self.promo_qty or self.promo_total is None or antal < 1:
+            return None
+        ordinarie = parse_kr(self.regular_price)
+        p = Product(store=self.store, code=self.code, name=self.name, price=ordinarie or 0.0,
+                    promo_qty=self.promo_qty, promo_total=self.promo_total, promo_max=self.promo_max)
+        kampanj_st = antal - antal % self.promo_qty
+        if self.promo_max is not None:
+            kampanj_st = min(kampanj_st, self.promo_max * self.promo_qty)
+        if antal > kampanj_st and ordinarie is None:
+            return None  # delvis ordinarie pris, men det priset är okänt
+        return p.cost(antal)
 
     def short(self) -> str:
         brand = f" ({self.brand})" if self.brand else ""
@@ -73,3 +96,14 @@ _MAX = re.compile(r"max\s*(\d+)\s*(?:köp|erbj|st)", re.I)
 def parse_promo_max(text: str) -> int | None:
     m = _MAX.search(text or "")
     return int(m.group(1)) if m else None
+
+
+_KR = re.compile(r"(\d+(?:[ \u00a0]\d{3})*(?:[.,]\d+)?)")
+
+
+def parse_kr(text: str | None) -> float | None:
+    """'27,90 kr' -> 27.9, '1 049,00 kr' -> 1049.0; None om inget pris finns."""
+    m = _KR.search(text or "")
+    if not m:
+        return None
+    return float(m.group(1).replace(" ", "").replace("\u00a0", "").replace(",", "."))

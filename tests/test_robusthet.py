@@ -27,7 +27,7 @@ class FejkPlanerare:
     def choose_products(self, rows, cands, ica, undvik):
         FejkPlanerare.produktval_anrop += 1
         return Produktval(val=[
-            Val(rad=i, willys_kod=c[0].code if c else None, willys_antal=1, ica_butik=None, motivering="")
+            Val(rad=i, willys_kod=c[0].code if c else None, willys_antal=1, butik=None, motivering="")
             for i, c in enumerate(cands)
         ])
 
@@ -172,9 +172,9 @@ def test_hogst_ett_get_per_produkt_och_korning(data_dir, monkeypatch):
         def choose_products(self, rows, cands, ica, undvik):
             r = lambda *k: [Reserv(kod=x, antal=1) for x in k]
             return Produktval(val=[
-                Val(rad=0, willys_kod="A_ST", willys_antal=1, ica_butik=None, motivering="", willys_reserver=r("B_ST", "C_ST")),
-                Val(rad=1, willys_kod="B_ST", willys_antal=1, ica_butik=None, motivering="", willys_reserver=r("C_ST")),
-                Val(rad=2, willys_kod="D_ST", willys_antal=1, ica_butik=None, motivering=""),
+                Val(rad=0, willys_kod="A_ST", willys_antal=1, butik=None, motivering="", willys_reserver=r("B_ST", "C_ST")),
+                Val(rad=1, willys_kod="B_ST", willys_antal=1, butik=None, motivering="", willys_reserver=r("C_ST")),
+                Val(rad=2, willys_kod="D_ST", willys_antal=1, butik=None, motivering=""),
             ])
 
     monkeypatch.setattr(pipeline, "Planner", Planerare)

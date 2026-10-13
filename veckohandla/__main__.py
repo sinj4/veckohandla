@@ -145,7 +145,7 @@ def kor(cfg: dict, args) -> int:
     out = pipeline.DATA / f"{res.week}.html"
     out.write_text(page)
     print(f"Rapport: {out}")
-    print(f"Willys: {res.willys_total:.2f} kr, ICA-butikslistor: {res.ica_total:.2f} kr")
+    print(f"Willys e-handel: {res.willys_total:.2f} kr, butikslistor (Willys i butik/ICA): {res.butik_total:.2f} kr")
 
     if not args.ingen_mejl:
         pw = os.environ.get("SMTP_PASSWORD")

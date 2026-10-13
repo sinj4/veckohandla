@@ -13,7 +13,7 @@ KANDIDATER = [prod("A_ST", 20.0), prod("B_ST", 12.0, promo_qty=2, promo_total=12
 
 
 def val(huvud="A_ST", antal=1, reserver=(("B_ST", 1), ("C_ST", 2))):
-    return Val(rad=0, willys_kod=huvud, willys_antal=antal, ica_butik=None, motivering="",
+    return Val(rad=0, willys_kod=huvud, willys_antal=antal, butik=None, motivering="",
                willys_reserver=[Reserv(kod=k, antal=a) for k, a in reserver])
 
 
@@ -166,10 +166,10 @@ def test_run_byter_till_reserv_och_sparar_reserver(data_dir, monkeypatch):
 
         def choose_products(self, rows, cands, ica, undvik):
             return Produktval(val=[
-                Val(rad=0, willys_kod="SOLO_KG", willys_antal=1, ica_butik=None, motivering="",
+                Val(rad=0, willys_kod="SOLO_KG", willys_antal=1, butik=None, motivering="",
                     willys_reserver=[Reserv(kod="KAPSEL_ST", antal=1), Reserv(kod="FLATA_ST", antal=1)]),
-                Val(rad=1, willys_kod="BULLAR_ST", willys_antal=1, ica_butik=None, motivering="", willys_reserver=[]),
-                Val(rad=2, willys_kod="OST_ST", willys_antal=1, ica_butik=None, motivering="",
+                Val(rad=1, willys_kod="BULLAR_ST", willys_antal=1, butik=None, motivering="", willys_reserver=[]),
+                Val(rad=2, willys_kod="OST_ST", willys_antal=1, butik=None, motivering="",
                     willys_reserver=[Reserv(kod="SKINKOST_ST", antal=1)]),
             ])
 

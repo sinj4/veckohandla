@@ -32,35 +32,64 @@ def product_details(code: str) -> dict:
         return med_omforsok(lambda: c.get(f"/axfood/rest/p/{code}")).json()
 
 
-def fetch_offers(store_id: str, store_name: str) -> list[Offer]:
-    """E-handelns kampanjer (det boten kan lägga i varukorgen), inte butikens hyllkampanjer."""
+def fetch_offers(store_id: str, store_name: str, kanal: str = "online") -> list[Offer]:
+    """Willys kampanjer för en butik.
+
+    kanal="online": e-handelns kampanjer (det boten kan lägga i varukorgen).
+    kanal="offline": butikens hyllkampanjer – gäller bara i butik. Produktkoden ligger där i
+    potentialPromotions[0].mainProductCode (posten saknar `code`).
+    """
+    assert kanal in ("online", "offline")
     offers: list[Offer] = []
     with _client() as c:
         page = 0
         while True:
             params = {"q": store_id, "type": "PERSONAL_GENERAL", "page": page, "size": 100}
-            r = med_omforsok(lambda: c.get("/search/campaigns/online", params=params))
+            r = med_omforsok(lambda: c.get(f"/search/campaigns/{kanal}", params=params))
             data = r.json()
             for item in data.get("results", []):
-                promo = (item.get("potentialPromotions") or [{}])[0]
-                offers.append(
-                    Offer(
-                        store=store_name,
-                        name=item.get("name", ""),
-                        brand=item.get("manufacturer") or "",
-                        deal=(promo.get("conditionLabel") or "") + " " + (promo.get("rewardLabel") or ""),
-                        compare_price=promo.get("comparePrice") or "",
-                        category=item.get("googleAnalyticsCategory") or "",
-                        regular_price=item.get("price") or "",
-                        online=item.get("online"),
-                    )
-                )
+                offers.append(_to_offer(item, store_name))
             page += 1
             if page >= data.get("pagination", {}).get("numberOfPages", 0):
                 break
-    for o in offers:
-        o.deal = o.deal.strip()
     return offers
+
+
+def _to_offer(item: dict, store_name: str) -> Offer:
+    promo = (item.get("potentialPromotions") or [{}])[0]
+    code = item.get("code") or promo.get("mainProductCode") or ""
+    o = Offer(
+        store=store_name,
+        name=item.get("name", ""),
+        brand=item.get("manufacturer") or "",
+        deal=f"{promo.get('conditionLabel') or ''} {promo.get('rewardLabel') or ''}".strip(),
+        compare_price=promo.get("comparePrice") or "",
+        category=item.get("googleAnalyticsCategory") or "",
+        regular_price=item.get("price") or "",
+        online=item.get("online"),
+        code=code,
+        size=item.get("displayVolume") or "",
+    )
+    weight = _piece_weight_kg(o.size) if code.endswith("_KG") else None
+    if tolkad := _tolka_promo(promo, weight):
+        o.promo_qty, o.promo_total, _, o.promo_max = tolkad
+    return o
+
+
+def _tolka_promo(pr: dict, weight: float | None) -> tuple[int, float, str, int | None] | None:
+    """(antal, totalpris, text, max per hushåll) ur en potentialPromotions-post, eller None."""
+    if not pr or pr.get("price") is None:
+        return None
+    qty = pr.get("qualifyingCount") or 1
+    # Sök-API:t anger styckpris i ett objekt ("2 för 15" -> value 7.5), kampanj-API:erna totalpris som tal
+    price = pr["price"]
+    total = float(price["value"]) * qty if isinstance(price, dict) else float(price)
+    if weight:
+        total = round(total * weight, 2)
+    text = f"{pr.get('conditionLabel') or ''} {pr.get('rewardLabel') or ''}".strip()
+    if pr.get("redeemLimitLabel"):
+        text += f" ({pr['redeemLimitLabel']})"
+    return qty, total, text, pr.get("redeemLimit") or parse_promo_max(pr.get("redeemLimitLabel") or "")
 
 
 _APPROX = re.compile(r"ca:?\s*(\d+(?:[.,]\d+)?)\s*(kg|g)\b", re.I)
@@ -93,19 +122,8 @@ def _to_product(item: dict, store_name: str) -> Product:
         p.price = round(p.price * weight, 2)
         p.extra["weight_kg"] = weight
     promos = [x for x in item.get("potentialPromotions") or [] if x.get("price") is not None]
-    if promos:
-        pr = promos[0]
-        qty = pr.get("qualifyingCount") or 1
-        # Sök-API:t anger styckpris i ett objekt ("2 för 15" -> value 7.5), kampanj-API:t totalpris som tal
-        price = pr["price"]
-        total = float(price["value"]) * qty if isinstance(price, dict) else float(price)
-        if weight:
-            total = round(total * weight, 2)
-        p.promo_qty, p.promo_total = qty, total
-        p.promo_text = f"{pr.get('conditionLabel') or ''} {pr.get('rewardLabel') or ''}".strip()
-        p.promo_max = pr.get("redeemLimit") or parse_promo_max(pr.get("redeemLimitLabel") or "")
-        if pr.get("redeemLimitLabel"):
-            p.promo_text += f" ({pr['redeemLimitLabel']})"
+    if promos and (tolkad := _tolka_promo(promos[0], weight)):
+        p.promo_qty, p.promo_total, p.promo_text, p.promo_max = tolkad
     return p
 
 
