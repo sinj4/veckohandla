@@ -63,6 +63,17 @@ class Product:
     promo_max: int | None = None  # max antal kampanjköp per hushåll
     url: str = ""
     extra: dict = field(default_factory=dict)
+    jamfor_varde: float | None = None  # ordinarie jämförpris, t.ex. 2.50
+    jamfor_enhet: str = ""  # t.ex. "st", "kg", "l"
+
+    @property
+    def jamforpris(self) -> float | None:
+        """Jämförpris per enhet; gäller en kampanj räknas det på kampanjpriset."""
+        if self.jamfor_varde is None:
+            return None
+        if self.promo_qty and self.promo_total is not None and self.price > 0:
+            return round(self.jamfor_varde * (self.promo_total / self.promo_qty) / self.price, 2)
+        return self.jamfor_varde
 
     def cost(self, qty: int) -> float:
         """Kostnad för qty st med hänsyn till mängdkampanj."""

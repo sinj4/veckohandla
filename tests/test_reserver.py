@@ -164,7 +164,7 @@ def test_run_byter_till_reserv_och_sparar_reserver(data_dir, monkeypatch):
             rader = [Inkopsrad(vara=v, behov="1 st", sokord=v, till=["Måndag"]) for v in ("vitlök", "köttbullar", "ost")]
             return Veckoplan(middagar=[], inkopslista=rader, kommentar="")
 
-        def choose_products(self, rows, cands, ica, undvik):
+        def choose_products(self, rows, cands, ica, undvik, gar_alltid_at=None):
             return Produktval(val=[
                 Val(rad=0, willys_kod="SOLO_KG", willys_antal=1, butik=None, motivering="",
                     willys_reserver=[Reserv(kod="KAPSEL_ST", antal=1), Reserv(kod="FLATA_ST", antal=1)]),

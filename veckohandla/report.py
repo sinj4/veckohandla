@@ -88,6 +88,10 @@ def render(res: Result) -> str:
             if l.tillganglighet_okand:
                 kolla += "<br><small style='color:#b36b00'>⚠️ Kunde inte kontrollera om varan finns i butiken</small>"
             bytt = f"<br><small style='color:#1a5fb4'>{e(byte_text(l))}</small>" if l.bytt else ""
+            if l.storpack:
+                jp = l.product.jamforpris
+                pris = f" ({jp:.2f} kr/{l.product.jamfor_enhet})".replace(".", ",") if jp is not None else ""
+                bytt += f"<br><small style='color:#2a7a2a'>Storpack, lägst jämförpris{e(pris)}</small>"
             promo = f"<br><small style='color:#c00'>{e(l.product.promo_text)}</small>" if l.product.promo_text else ""
             parts.append(
                 f"<tr><td>{e(l.row.vara)}<br><small style='color:#666'>{e(l.row.behov)}</small></td>"

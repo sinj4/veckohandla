@@ -6,7 +6,7 @@ import re
 
 import httpx
 
-from ..models import Offer, Product, parse_promo_max
+from ..models import Offer, Product, parse_kr, parse_promo_max
 from .http import med_omforsok
 
 BASE = "https://www.willys.se"
@@ -113,6 +113,8 @@ def _to_product(item: dict, store_name: str) -> Product:
         size=item.get("displayVolume") or "",
         url=f"{BASE}/produkt/{item['code']}",
         extra={"pickUnit": "pieces"},
+        jamfor_varde=parse_kr(item.get("comparePrice")),
+        jamfor_enhet=(item.get("comparePriceUnit") or "").strip().lower(),
     )
     # Lösvikt (_KG) köps per styck; priset per kg räknas om till uppskattat styckpris
     weight = _piece_weight_kg(p.size) if p.code.endswith("_KG") else None

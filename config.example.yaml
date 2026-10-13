@@ -24,6 +24,9 @@ hushall:
   # Fångar t.ex. köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Exempel för fläskfritt:
   #   [fläsk, griskött, gris, bacon, skinka, ister, svinkött]
   sparrord_ingredienser: []
+  # Varor som alltid går åt: köps i den förpackning som har lägst jämförpris, även om den är större
+  # än veckans behov (tak ca 30 st eller 2 kg per förpackning). Matchar ord i inköpsradens vara.
+  gar_alltid_at: [ägg]
 
 # Basvaror som alltid finns hemma – köps inte
 skafferi:

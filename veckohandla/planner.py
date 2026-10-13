@@ -102,6 +102,12 @@ def _dagar(n: int) -> str:
     return f"Välj själv vilka {n} veckodagar middagarna gäller."
 
 
+def gar_alltid_at_rad(row: Inkopsrad, ord: list[str]) -> bool:
+    """Matchar inköpsraden en vara som alltid går åt (hushall.gar_alltid_at)?"""
+    vara = row.vara.lower()
+    return any(o.lower() in vara for o in ord if o)
+
+
 class Planner:
     """Anropar Claude via API-nyckel om ANTHROPIC_API_KEY finns, annars via Claude Code (Pro-inloggning)."""
 
@@ -191,6 +197,7 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
         candidates: list[list[Product]],
         butiks_offers: list[Offer],
         undvik: list[str],
+        gar_alltid_at: list[str] | None = None,
     ) -> Produktval:
         system = (
             "Du matchar inköpsrader mot produkter i Willys e-handel och väljer billigaste rimliga "
@@ -199,7 +206,8 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
         blocks = []
         for i, (row, cands) in enumerate(zip(rows, candidates)):
             c = "\n".join(f"  {p.describe()}" for p in cands) or "  (inga träffar)"
-            blocks.append(f"[{i}] {row.vara} – behov {row.behov} – till: {', '.join(row.till)}\n{c}")
+            storpack = " – GÅR ALLTID ÅT: ta med storpack" if gar_alltid_at_rad(row, gar_alltid_at or []) else ""
+            blocks.append(f"[{i}] {row.vara} – behov {row.behov} – till: {', '.join(row.till)}{storpack}\n{c}")
         butikskampanjer = "\n".join(f"- {o.store}: {f'[{o.code}] ' if o.code else ''}{o.short()}" for o in butiks_offers)
         prompt = f"""Välj för varje inköpsrad den Willys-produkt (kod) och det antal som täcker behovet billigast.
 - Antal: priset i listan gäller per förpackning, eller per styck för lösvikt märkt "per st" (vikten
@@ -215,6 +223,10 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
   huvudvalet: samma sorts vara som passar rätten, inget av det som ska undvikas, och antalet räknat för
   reservens egen förpackningsstorlek (t.ex. 2 st á 500 g om huvudvalet var 1 st á 1 kg). Hellre färre
   reserver än en som inte passar.
+- Rader märkta "GÅR ALLTID ÅT" gäller varor som hushållet alltid gör av med. Ta med alla godtagbara
+  storlekar av samma vara bland huvudval och reserver, även förpackningar som är större än behovet
+  (tak ungefär 30 st eller 2 kg per förpackning). Antal: så få förpackningar som täcker behovet,
+  normalt 1. Koden väljer sedan den med lägst jämförpris.
 - Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är tydligt billigare för
   samma behov: ange butik (exakt butiksnamn), butik_erbjudande, butik_antal och uppskattad
   butik_kostnad_kr. För "Willys … (i butik)" ange även butik_kod (koden i hakparentes) – koden räknar

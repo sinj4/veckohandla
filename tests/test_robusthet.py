@@ -24,7 +24,7 @@ class FejkPlanerare:
         rader = [Inkopsrad(vara=v, behov="1 st", sokord=v, till=["Måndag"]) for v in ("ägg", "mjölk")]
         return Veckoplan(middagar=[], inkopslista=rader, kommentar="")
 
-    def choose_products(self, rows, cands, ica, undvik):
+    def choose_products(self, rows, cands, ica, undvik, gar_alltid_at=None):
         FejkPlanerare.produktval_anrop += 1
         return Produktval(val=[
             Val(rad=i, willys_kod=c[0].code if c else None, willys_antal=1, butik=None, motivering="")
@@ -169,7 +169,7 @@ def test_hogst_ett_get_per_produkt_och_korning(data_dir, monkeypatch):
             rader = [Inkopsrad(vara=v, behov="1 st", sokord=v, till=["Måndag"]) for v in ("bullar", "färs", "saknas")]
             return Veckoplan(middagar=[], inkopslista=rader, kommentar="")
 
-        def choose_products(self, rows, cands, ica, undvik):
+        def choose_products(self, rows, cands, ica, undvik, gar_alltid_at=None):
             r = lambda *k: [Reserv(kod=x, antal=1) for x in k]
             return Produktval(val=[
                 Val(rad=0, willys_kod="A_ST", willys_antal=1, butik=None, motivering="", willys_reserver=r("B_ST", "C_ST")),

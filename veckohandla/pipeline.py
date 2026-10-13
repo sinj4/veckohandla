@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from .models import Offer, Product
-from .planner import Inkopsrad, Planner, Val, Veckoplan
+from .planner import Inkopsrad, Planner, Val, Veckoplan, gar_alltid_at_rad
 from . import ingredienser
 from .stores import ica, willys
 
@@ -42,6 +42,7 @@ class Line:
     borttagen: str | None = None  # alla alternativ föll bort – köp manuellt
     kontrollera: bool = False  # kött/chark/färdigmat utan ingrediensuppgift
     tillganglighet_okand: bool = False  # tillgänglighetskontrollen gav inget svar – varan antas finnas
+    storpack: bool = False  # varan går alltid åt – valt alternativ har lägst jämförpris
 
     @property
     def forsta_val(self) -> Product | None:
@@ -153,6 +154,34 @@ def valj_alternativ(
             kontrollera = k.status == "kontrollera"
         return alt, bortvalda, kontrollera, tillganglig is None
     return None, bortvalda, False, False
+
+
+def valj_storpack(
+    alternativ: list[Alternativ],
+    finns: Callable[[str], bool | None],
+    ingredienser_ok: Callable[[str], ingredienser.Kontroll] | None,
+) -> tuple[Alternativ | None, list[tuple[Alternativ, str]], bool, bool]:
+    """För varor som alltid går åt: bland alternativen som klarar tillgänglighet och ingredienser väljs
+    det med lägst jämförpris. Bara alternativ med samma jämförenhet som det första godkända jämförs.
+
+    Returnerar samma fyrtupel som valj_alternativ.
+    """
+    godkanda: list[tuple[Alternativ, bool, bool]] = []
+    bortvalda: list[tuple[Alternativ, str]] = []
+    rest = list(alternativ)
+    while rest:
+        valt, bort, kolla, okand = valj_alternativ(rest, finns, ingredienser_ok)
+        bortvalda += bort
+        if valt is None:
+            break
+        godkanda.append((valt, kolla, okand))
+        rest = rest[rest.index(valt) + 1:]
+    if not godkanda:
+        return None, bortvalda, False, False
+    enhet = godkanda[0][0].product.jamfor_enhet
+    jamforbara = [g for g in godkanda if g[0].product.jamfor_enhet == enhet and g[0].product.jamforpris is not None]
+    basta = min(jamforbara, key=lambda g: g[0].product.jamforpris) if jamforbara else godkanda[0]
+    return basta[0], bortvalda, basta[1], basta[2]
 
 
 def godkanda_reserver(
@@ -329,7 +358,8 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
 
     log("Väljer produkter och jämför med butikskampanjer…")
     butiks_offers = [o for o in offers if o.store != willys_name]
-    choice = planner.choose_products(rows, candidates, butiks_offers, cfg["hushall"].get("undvik", []))
+    gar_alltid_at = cfg["hushall"].get("gar_alltid_at", [])
+    choice = planner.choose_products(rows, candidates, butiks_offers, cfg["hushall"].get("undvik", []), gar_alltid_at)
 
     i_butik_namn = willys_i_butik_namn(cfg)
     i_butik_offers = {o.code: o for o in butiks_offers if o.store == i_butik_namn and o.code}
@@ -361,7 +391,9 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
             ik.hamta = sidor.detaljer  # samma GET för tillgänglighet och ingredienser
             ingr = ik.kontrollera if ingr_ord else None
             for l in willys_lines:
-                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_alternativ(l.alternativ, sidor.finns, ingr)
+                l.storpack = gar_alltid_at_rad(l.row, gar_alltid_at)
+                valj = valj_storpack if l.storpack else valj_alternativ
+                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj(l.alternativ, sidor.finns, ingr)
                 if valt is None:
                     l.product, l.qty, l.willys_cost = None, 0, None
                     l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
@@ -370,7 +402,11 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
                 l.product, l.qty, l.willys_cost = valt.product, valt.qty, valt.product.cost(valt.qty)
                 if l.bortvalda:
                     log(f"  Bytt: {l.forsta_val.name} → {valt.product.name} ({l.bortvalda[0][1]})")
-                rest = l.alternativ[l.alternativ.index(valt) + 1:]
+                if l.storpack:  # övriga godtagbara storlekar blir reserver, i ordning
+                    bort = {a.product.code for a, _ in l.bortvalda}
+                    rest = [a for a in l.alternativ if a is not valt and a.product.code not in bort]
+                else:
+                    rest = l.alternativ[l.alternativ.index(valt) + 1:]
                 l.reserver = godkanda_reserver(rest, ingr)
 
     result.willys_total = round(
