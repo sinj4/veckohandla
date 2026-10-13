@@ -70,7 +70,7 @@ class Val(BaseModel):
         description="Butiken (exakt namn ur butikskampanjerna, ICA eller Willys i butik) om en butikskampanj "
         "är klart billigare än e-handeln, annars null"
     )
-    butik_kod: str | None = Field(default=None, description="Produktkoden i hakparentes för Willys i butik, annars null")
+    butik_kod: str | None = Field(default=None, description="Kampanjens kod i hakparentes (krävs när butik anges), annars null")
     butik_erbjudande: str | None = None
     butik_antal: int = 0
     butik_kostnad_kr: float | None = Field(default=None, description="Uppskattad kostnad i butiken för behovet")
@@ -228,9 +228,10 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
   (tak ungefär 30 st eller 2 kg per förpackning). Antal: så få förpackningar som täcker behovet,
   normalt 1. Koden väljer sedan den med lägst jämförpris.
 - Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är tydligt billigare för
-  samma behov: ange butik (exakt butiksnamn), butik_erbjudande, butik_antal och uppskattad
-  butik_kostnad_kr. För "Willys … (i butik)" ange även butik_kod (koden i hakparentes) – koden räknar
-  då kostnaden själv. Välj ändå en Willys-produkt i e-handeln som reserv.
+  samma behov: ange butik (exakt butiksnamn), butik_kod (kampanjens kod i hakparentes – den måste höra
+  till samma butik), butik_erbjudande, butik_antal (minst 1) och uppskattad butik_kostnad_kr. För
+  "Willys … (i butik)" räknar koden själv kostnaden ur kampanjen. Ett butiksval utan giltig kod
+  ignoreras. Välj ändå en Willys-produkt i e-handeln som reserv.
 
 # Inköpsrader med Willys-kandidater
 {chr(10).join(blocks)}

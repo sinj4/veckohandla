@@ -107,3 +107,72 @@ def test_namnfiltret_kor_pa_butikskampanjer_fore_menyplaneringen(korning):
     namn = [o.name for o in Planerare.menyns_kampanjer]
     assert "Bacon skivat" not in namn  # spärrordet "bacon" i namnet
     assert "Köttbullar" in namn  # fångas först av ingredienskontrollen
+
+
+# ---------- Punkt 2: validering av butiksvalet och tröskel per butik ----------
+
+def _kor_med_val(data_dir, monkeypatch, val_fn, cfg=CFG, kampanjer=KAMPANJER):
+    monkeypatch.setattr(pipeline.time, "sleep", lambda s: None)
+    monkeypatch.setattr(pipeline, "fetch_all_offers", lambda c, v: list(kampanjer))
+
+    class P(Planerare):
+        def choose_products(self, rows, cands, butiker, undvik, gar_alltid_at=None):
+            return Produktval(val=[val_fn(i) for i in range(len(rows))])
+
+    monkeypatch.setattr(pipeline, "Planner", P)
+    return pipeline._run(cfg, Session(), False, log=lambda *a: None)
+
+
+def _val(i, butik=None, kod=None, antal=1, kr=10.0):
+    return Val(rad=i, willys_kod=f"E{i}_ST", willys_antal=1, butik=butik, butik_kod=kod,
+               butik_erbjudande="enligt Claude", butik_antal=antal, butik_kostnad_kr=kr, motivering="")
+
+
+@pytest.mark.parametrize("butik,kod,antal", [
+    (I_BUTIK, "FINNS_INTE", 1),        # okänd kod
+    ("ICA X", "FARS_BUTIK", 1),        # koden hör till en annan butik
+    (I_BUTIK, None, 1),                # kod saknas
+    (I_BUTIK, "FARS_BUTIK", 0),        # antal saknas
+])
+def test_ogiltigt_butiksval_ignoreras_med_varning(data_dir, monkeypatch, butik, kod, antal):
+    res = _kor_med_val(data_dir, monkeypatch, lambda i: _val(i, butik, kod, antal) if i == 1 else _val(i))
+    farsrad = res.lines[1]
+    assert not farsrad.i_butik and farsrad.product.code == "E1_ST"
+    assert any("Ogiltigt butiksval för nötfärs" in v and repr(kod) in v for v in res.varningar)
+    assert "Ogiltigt butiksval för nötfärs" in report.render(res)
+
+
+def _troskel_cfg(troskel=40):
+    return {**CFG, "butiker": {"willys": {"namn": "Willys Test", "store_id": "1"}, "ica": []},
+            "hushall": {"sparrord": []}, "optimering": {"min_besparing_willys_i_butik_kr": troskel}}
+
+
+def _billigare_i_butik(kod):
+    # e-handeln kostar 200 kr; kampanjen räknas i koden till 175 kr -> sparar 25 kr per rad
+    return Offer(store=I_BUTIK, name=kod, brand="", deal="175,00/st", compare_price="", category="skafferi",
+                 regular_price="200,00 kr", code=kod, promo_qty=1, promo_total=175.0)
+
+
+def test_troskeln_galler_butikens_summa(data_dir, monkeypatch):
+    kampanjer = [_billigare_i_butik("K1"), _billigare_i_butik("K2")]
+    val2 = lambda i: _val(i, I_BUTIK, f"K{i + 1}") if i < 2 else _val(i)
+    res = _kor_med_val(data_dir, monkeypatch, val2, cfg=_troskel_cfg(), kampanjer=kampanjer)
+    assert [l.row.vara for l in res.butik_listor[I_BUTIK]] == ["köttbullar", "nötfärs"]  # 2 × 25 = 50 ≥ 40
+    assert res.butik_besparing[I_BUTIK] == 50.0
+
+    val1 = lambda i: _val(i, I_BUTIK, "K1") if i == 0 else _val(i)
+    res = _kor_med_val(data_dir, monkeypatch, val1, cfg=_troskel_cfg(), kampanjer=kampanjer)
+    assert res.butik_listor == {} and not res.lines[0].i_butik  # 25 < 40
+
+
+def test_butikskostnad_over_max_utan_ordinarie_pris_blir_uppskattad(data_dir, monkeypatch):
+    kampanj = Offer(store=I_BUTIK, name="Tacochips", brand="", deal="2 för 22,00 (Max 1 köp)", compare_price="",
+                    category="skafferi", regular_price="", code="CHIPS2", promo_qty=2, promo_total=22.0, promo_max=1)
+    assert kampanj.kostnad(4) is None  # två kampanjomgångar men max 1 och okänt ordinarie pris
+    res = _kor_med_val(data_dir, monkeypatch, lambda i: _val(i, I_BUTIK, "CHIPS2", antal=4, kr=60.0) if i == 0 else _val(i),
+                       cfg={**_troskel_cfg(0), "butiker": {**_troskel_cfg()["butiker"],
+                            "willys": {"namn": "Willys Test", "store_id": "1", "hamtar_i_butik": True}}},
+                       kampanjer=[kampanj])
+    rad = res.lines[0]
+    assert rad.i_butik and rad.butik.butik_kostnad_kr == 60.0 and not rad.butik.butik_kostnad_beraknad
+    assert "60,00 kr (uppskattat)" in report.render(res)

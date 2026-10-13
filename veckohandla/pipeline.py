@@ -197,6 +197,13 @@ def godkanda_reserver(
     return [r for r in reserver if ingredienser_ok(r.product.code).status != "borttagen"]
 
 
+def giltigt_butiksval(v: Val, butiks_offers: list[Offer]) -> bool:
+    """Finns paret butik + butik_kod bland just den butikens kampanjer, och är antalet minst 1?"""
+    if not v.butik_kod or not v.butik_antal or v.butik_antal < 1:
+        return False
+    return any(o.store == v.butik and o.code == v.butik_kod for o in butiks_offers)
+
+
 def berakna_butikskostnad(v: Val, offers_by_code: dict[str, Offer]) -> None:
     """Räkna kostnaden för en Willys-butikskampanj i koden ur kampanjen (pris per st, "2 för X",
     max per hushåll). Claudes uppskattning behålls bara om kampanjen inte går att tolka."""
@@ -402,6 +409,13 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     lines: list[Line] = []
     for i, r in enumerate(rows):
         v = by_row.get(i)
+        if v and v.butik and not giltigt_butiksval(v, butiks_offers):
+            varningar.append(
+                f"Ogiltigt butiksval för {r.vara}: butik {v.butik!r}, kod {v.butik_kod!r}, antal {v.butik_antal} "
+                "– raden ligger kvar i e-handeln"
+            )
+            log(f"  VARNING: {varningar[-1]}")
+            v.butik = None
         if v and v.butik == i_butik_namn:
             berakna_butikskostnad(v, i_butik_offers)
         alt = provningsordning(v, candidates[i])
