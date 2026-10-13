@@ -12,7 +12,7 @@ from typing import Callable
 
 from .models import Offer, Product
 from .planner import Inkopsrad, Planner, Val, Veckoplan, gar_alltid_at_rad
-from . import ingredienser
+from . import ingredienser, lager
 from .stores import ica, willys
 
 # Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
@@ -45,6 +45,8 @@ class Line:
     storpack: bool = False  # varan går alltid åt – valt alternativ har lägst jämförpris
     butik_stoppad: str | None = None  # butikskampanjen stoppades av ingredienskontrollen, t.ex. "innehåller gris"
     butik_kontrollera: bool = False  # butiksraden saknar ingrediensuppgift i kött-, chark- eller färdigmatskategori
+    gar_alltid_at: str | None = None  # matchad post i hushall.gar_alltid_at (sparas i korgfilen)
+    lager_kvar: float | None = None  # uppskattat lager som räcker veckan ut – köps inte
 
     @property
     def forsta_val(self) -> Product | None:
@@ -413,7 +415,8 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
 
     log("Väljer produkter och jämför med butikskampanjer…")
     butiks_offers = [o for o in offers if o.store != willys_name]
-    gar_alltid_at = cfg["hushall"].get("gar_alltid_at", [])
+    gar_poster = lager.las_gar_alltid_at(cfg["hushall"].get("gar_alltid_at", []))
+    gar_alltid_at = [p.vara for p in gar_poster]
     choice = planner.choose_products(rows, candidates, butiks_offers, cfg["hushall"].get("undvik", []), gar_alltid_at)
 
     i_butik_namn = willys_i_butik_namn(cfg)
@@ -457,6 +460,19 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
         # Ett butiksbesök lönar sig bara om det sparar tillräckligt – annars köps allt i e-handeln
         result.butik_listor, result.butik_besparing = tillampa_butikstroskel(lines, butikens_troskel(cfg))
 
+        # Varor som alltid går åt: räcker det uppskattade lagret från tidigare veckors korgar köps de inte
+        korgar = lager.senaste_korgar(DATA, result.week) if any(p.per_vecka for p in gar_poster) else []
+        for l in lines:
+            post = lager.matchande_post(l.row.vara, gar_poster)
+            if not post or l.i_butik:
+                continue
+            l.gar_alltid_at = post.vara
+            kvar = lager.uppskattat_lager(post, korgar, result.week, log) if post.per_vecka else None
+            behov = max(lager.antal_i_behov(l.row.behov) or 0, post.per_vecka or 0)
+            if kvar is not None and kvar >= behov and not l.row.kanske_hemma:
+                l.row.kanske_hemma, l.lager_kvar = True, kvar
+                log(f"  Lager: {l.row.vara} – uppskattat kvar ca {kvar:.0f}, räcker till {behov:.0f} – köps inte")
+
         willys_lines = [l for l in lines if l.alternativ and not l.i_butik]
         if willys_lines:
             log("Kontrollerar tillgänglighet i butiken och ingredienser…")
@@ -488,7 +504,8 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     result.butik_total = round(sum(l.butik.butik_kostnad_kr for l in lines if l.i_butik), 2)
 
     cart_lines = [
-        {**_korgrad(l.product, l.qty), "reserver": [_korgrad(a.product, a.qty) for a in l.reserver]}
+        {**_korgrad(l.product, l.qty), "reserver": [_korgrad(a.product, a.qty) for a in l.reserver],
+         **({"gar_alltid_at": l.gar_alltid_at} if l.gar_alltid_at else {})}
         for l in lines
         if l.product and not l.i_butik and not l.row.kanske_hemma and l.qty > 0
     ]
@@ -512,7 +529,10 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
 
 
 def _korgrad(p: Product, qty: int) -> dict:
-    return {"code": p.code, "qty": qty, "pick_unit": p.extra.get("pickUnit", "pieces"), "name": p.name, "size": p.size}
+    rad = {"code": p.code, "qty": qty, "pick_unit": p.extra.get("pickUnit", "pieces"), "name": p.name, "size": p.size}
+    if (n := p.enheter_per_forpackning) is not None:
+        rad["enheter"] = round(n, 2)  # används för lagret av varor som alltid går åt
+    return rad
 
 
 class Produktsidor:

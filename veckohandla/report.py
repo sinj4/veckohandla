@@ -108,10 +108,11 @@ def render(res: Result) -> str:
     if hemma:
         parts.append("<h2>Kolla om du har hemma</h2><p style='color:#666;font-size:13px'>Ligger inte i korgen.</p><ul>")
         for l in hemma:
+            kvar = f" – Uppskattat kvar: ca {l.lager_kvar:.0f} st" if l.lager_kvar is not None else ""
             if l.product:
-                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)}): {e(l.product.name)} {e(l.product.size)} – {_kr(l.willys_cost)}</li>")
+                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)}): {e(l.product.name)} {e(l.product.size)} – {_kr(l.willys_cost)}{kvar}</li>")
             else:
-                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)})</li>")
+                parts.append(f"<li>{e(l.row.vara)} ({e(l.row.behov)}){kvar}</li>")
         parts.append("</ul>")
 
     i_butik = res.butik_listor.get(res.willys_i_butik_namn)

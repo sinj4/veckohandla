@@ -69,9 +69,13 @@ class Product:
 
     @property
     def enheter_per_forpackning(self) -> float | None:
-        """Ordinarie pris / ordinarie jämförpris, t.ex. 72 kr / 3,00 kr/st = 24 st."""
+        """Ordinarie pris / ordinarie jämförpris, t.ex. 72 kr / 3,00 kr/st = 24 st.
+
+        Jämförpriset är avrundat (59,90 / 2,50 = 23,96), så styckvaror avrundas till heltal.
+        """
         if self.jamfor_varde and self.price > 0:
-            return self.price / self.jamfor_varde
+            n = self.price / self.jamfor_varde
+            return float(max(1, round(n))) if self.jamfor_enhet == "st" else n
         return None
 
     def effektivt_enhetspris(self, antal: int) -> float | None:
