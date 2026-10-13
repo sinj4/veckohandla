@@ -17,7 +17,8 @@ class Offer:
     category: str
     regular_price: str = ""
     online: bool | None = None
-    code: str = ""  # produktkod om butiken anger den (Willys)
+    code: str = ""  # produktkod (Willys) eller erbjudande-id (ICA)
+    kategori_id: int | None = None  # ICA: expandedArticleGroupId
     size: str = ""
     # Tolkad kampanj (Willys), för att räkna kostnad i koden i stället för att låta Claude uppskatta
     promo_qty: int | None = None

@@ -89,10 +89,18 @@ class Ingredienskontroll:
             self.lagg_in(code, self.hamta(code))
         return self.cache[code]
 
-    def kontrollera(self, code: str) -> Kontroll:
+    def kontrollera(self, code: str, kategori_om_okand: str | None = None) -> Kontroll:
+        """Kontrollera en produkts ingredienser mot spärrorden.
+
+        Går produktsidan inte att läsa (t.ex. 404 för en vara som bara finns i butik) avgör
+        `kategori_om_okand` – om den anges – om raden ska flaggas: bara kött, chark och färdigmat.
+        Utan den flaggas alltid, eftersom det är okänt vad varan innehåller.
+        """
         try:
             d = self._detaljer(code)
-        except Exception:  # nätverk m.m. – osäkert, så flagga i stället för att krascha
+        except Exception:  # nätverk, 404 m.m.
+            if kategori_om_okand is not None and kategori_om_okand.split("|")[0] not in RISK_KATEGORIER:
+                return Kontroll("ok")
             return Kontroll("kontrollera")
         text = d["ingredients"].lower()
         if text:

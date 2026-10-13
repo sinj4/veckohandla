@@ -88,6 +88,8 @@ def render(res: Result) -> str:
             if l.tillganglighet_okand:
                 kolla += "<br><small style='color:#b36b00'>⚠️ Kunde inte kontrollera om varan finns i butiken</small>"
             bytt = f"<br><small style='color:#1a5fb4'>{e(byte_text(l))}</small>" if l.bytt else ""
+            if l.butik_stoppad:
+                bytt += f"<br><small style='color:#b36b00'>Inte i butik: {e(l.butik_stoppad)}</small>"
             if l.storpack:
                 jp = l.product.jamforpris
                 pris = f" ({jp:.2f} kr/{l.product.jamfor_enhet})".replace(".", ",") if jp is not None else ""
@@ -124,7 +126,8 @@ def render(res: Result) -> str:
                      "<tr style='text-align:left;border-bottom:1px solid #ccc'><th>Vara</th><th>Kampanj</th><th>Antal</th><th>Pris</th></tr>")
         for l in i_butik:
             pris = _kr(l.butik.butik_kostnad_kr) + ("" if l.butik.butik_kostnad_beraknad else " (uppskattat)")
-            parts.append(f"<tr><td>{e(l.row.vara)}</td><td>{e(l.butik.butik_erbjudande or '')}</td>"
+            kolla = "<br><small style='color:#b36b00'>⚠️ Kontrollera ingredienser</small>" if l.butik_kontrollera else ""
+            parts.append(f"<tr><td>{e(l.row.vara)}</td><td>{e(l.butik.butik_erbjudande or '')}{kolla}</td>"
                          f"<td>{l.butik.butik_antal}</td><td>{pris}</td></tr>")
         parts.append("</table>")
 
@@ -135,7 +138,8 @@ def render(res: Result) -> str:
         rubrik = f"sparar ca {_kr(saving)}" if saving else "finns inte på Willys"
         parts.append(f"<h2>{e(store)} – i butik ({rubrik})</h2><ul>")
         for l in lines:
-            parts.append(f"<li>{e(l.row.vara)}: {e(l.butik.butik_erbjudande or '')} × {l.butik.butik_antal} ≈ {_kr(l.butik.butik_kostnad_kr)}</li>")
+            kolla = " <small style='color:#b36b00'>⚠️ Kontrollera ingredienser</small>" if l.butik_kontrollera else ""
+            parts.append(f"<li>{e(l.row.vara)}: {e(l.butik.butik_erbjudande or '')} × {l.butik.butik_antal} ≈ {_kr(l.butik.butik_kostnad_kr)}{kolla}</li>")
         parts.append("</ul>")
 
     total = res.willys_total + res.butik_total

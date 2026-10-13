@@ -43,6 +43,8 @@ class Line:
     kontrollera: bool = False  # kött/chark/färdigmat utan ingrediensuppgift
     tillganglighet_okand: bool = False  # tillgänglighetskontrollen gav inget svar – varan antas finnas
     storpack: bool = False  # varan går alltid åt – valt alternativ har lägst jämförpris
+    butik_stoppad: str | None = None  # butikskampanjen stoppades av ingredienskontrollen, t.ex. "innehåller gris"
+    butik_kontrollera: bool = False  # butiksraden saknar ingrediensuppgift i kött-, chark- eller färdigmatskategori
 
     @property
     def forsta_val(self) -> Product | None:
@@ -204,6 +206,39 @@ def berakna_butikskostnad(v: Val, offers_by_code: dict[str, Offer]) -> None:
         v.butik_kostnad_kr = kostnad
         v.butik_erbjudande = f"{offer.name} {offer.size}: {offer.deal}".strip()
         v.butik_kostnad_beraknad = True
+
+
+# ICA:s expandedArticleGroupId för kött (6), chark (16), färdiga såser/gratänger (14) och djupfryst (5)
+ICA_RISK_KATEGORIER = {5, 6, 14, 16}
+
+
+def kontrollera_butiksrader(
+    lines: list[Line],
+    i_butik_namn: str,
+    kampanjer: dict[tuple[str, str], Offer],
+    ik: ingredienser.Ingredienskontroll,
+    log=print,
+) -> None:
+    """Samma fläskskydd för butikslistorna som för korgen.
+
+    Willys i butik: ingredienserna för butik_kod kontrolleras (samma cache, samma GET-minne). Träff ->
+    raden flyttas tillbaka till e-handelsvalet. Saknas uppgift i kött/chark/färdigmat -> flagga.
+    ICA har ingen ingrediensuppgift: rader i kött-, chark- och färdigmatskategori flaggas.
+    """
+    for l in lines:
+        if not l.i_butik:
+            continue
+        offer = kampanjer.get((l.butik.butik, l.butik.butik_kod or ""))
+        if l.butik.butik == i_butik_namn:
+            k = ik.kontrollera(l.butik.butik_kod or "", kategori_om_okand=offer.category if offer else None)
+            if k.status == "borttagen":
+                l.butik_stoppad = f"kampanjvaran innehåller {k.ord}"
+                log(f"  Inte i butik: {l.row.vara} – {l.butik_stoppad}")
+                l.butik = None
+            else:
+                l.butik_kontrollera = k.status == "kontrollera"
+        elif offer is None or offer.kategori_id in ICA_RISK_KATEGORIER:
+            l.butik_kontrollera = True
 
 
 def tillampa_butikstroskel(
@@ -376,38 +411,46 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
                  butik=v if v and v.butik and v.butik_kostnad_kr is not None else None, alternativ=alt)
         )
 
-    # Ett butiksbesök lönar sig bara om det sparar tillräckligt – annars köps allt i e-handeln
     result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar,
                     willys_namn=willys_name, willys_i_butik_namn=i_butik_namn,
                     hamtar_i_butik=cfg["butiker"]["willys"].get("hamtar_i_butik", False))
-    result.butik_listor, result.butik_besparing = tillampa_butikstroskel(lines, butikens_troskel(cfg))
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
-    willys_lines = [l for l in lines if l.alternativ and not l.i_butik]
-    if willys_lines:
-        log("Kontrollerar tillgänglighet i butiken och ingredienser…")
-        with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
-            sidor = Produktsidor(sess, ik)
-            ik.hamta = sidor.detaljer  # samma GET för tillgänglighet och ingredienser
-            ingr = ik.kontrollera if ingr_ord else None
-            for l in willys_lines:
-                l.storpack = gar_alltid_at_rad(l.row, gar_alltid_at)
-                valj = valj_storpack if l.storpack else valj_alternativ
-                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj(l.alternativ, sidor.finns, ingr)
-                if valt is None:
-                    l.product, l.qty, l.willys_cost = None, 0, None
-                    l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
-                    log(f"  Köp manuellt: {l.row.vara} ({l.borttagen})")
-                    continue
-                l.product, l.qty, l.willys_cost = valt.product, valt.qty, valt.product.cost(valt.qty)
-                if l.bortvalda:
-                    log(f"  Bytt: {l.forsta_val.name} → {valt.product.name} ({l.bortvalda[0][1]})")
-                if l.storpack:  # övriga godtagbara storlekar blir reserver, i ordning
-                    bort = {a.product.code for a, _ in l.bortvalda}
-                    rest = [a for a in l.alternativ if a is not valt and a.product.code not in bort]
-                else:
-                    rest = l.alternativ[l.alternativ.index(valt) + 1:]
-                l.reserver = godkanda_reserver(rest, ingr)
+    with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
+        sidor = Produktsidor(sess, ik)
+        ik.hamta = sidor.detaljer  # samma GET för tillgänglighet och ingredienser
+        ingr = ik.kontrollera if ingr_ord else None
+
+        # Butikslistorna går genom samma fläskskydd som korgen – före tröskeln, så att besparingen
+        # bara räknas på rader som faktiskt får köpas
+        if ingr_ord:
+            kampanjer = {(o.store, o.code): o for o in butiks_offers if o.code}
+            kontrollera_butiksrader(lines, i_butik_namn, kampanjer, ik, log)
+
+        # Ett butiksbesök lönar sig bara om det sparar tillräckligt – annars köps allt i e-handeln
+        result.butik_listor, result.butik_besparing = tillampa_butikstroskel(lines, butikens_troskel(cfg))
+
+        willys_lines = [l for l in lines if l.alternativ and not l.i_butik]
+        if willys_lines:
+            log("Kontrollerar tillgänglighet i butiken och ingredienser…")
+        for l in willys_lines:
+            l.storpack = gar_alltid_at_rad(l.row, gar_alltid_at)
+            valj = valj_storpack if l.storpack else valj_alternativ
+            valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj(l.alternativ, sidor.finns, ingr)
+            if valt is None:
+                l.product, l.qty, l.willys_cost = None, 0, None
+                l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)
+                log(f"  Köp manuellt: {l.row.vara} ({l.borttagen})")
+                continue
+            l.product, l.qty, l.willys_cost = valt.product, valt.qty, valt.product.cost(valt.qty)
+            if l.bortvalda:
+                log(f"  Bytt: {l.forsta_val.name} → {valt.product.name} ({l.bortvalda[0][1]})")
+            if l.storpack:  # övriga godtagbara storlekar blir reserver, i ordning
+                bort = {a.product.code for a, _ in l.bortvalda}
+                rest = [a for a in l.alternativ if a is not valt and a.product.code not in bort]
+            else:
+                rest = l.alternativ[l.alternativ.index(valt) + 1:]
+            l.reserver = godkanda_reserver(rest, ingr)
 
     result.willys_total = round(
         sum(l.willys_cost or 0 for l in lines if l.product and not l.i_butik and not l.row.kanske_hemma), 2

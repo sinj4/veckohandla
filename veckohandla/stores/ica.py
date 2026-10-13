@@ -58,6 +58,8 @@ def fetch_offers(slug: str, store_name: str) -> list[Offer]:
                 category=o.get("category", {}).get("articleGroupName", ""),
                 regular_price=store.get("regularPrice", ""),
                 online=store.get("onlineInd"),
+                code=str(o.get("id") or ""),
+                kategori_id=o.get("category", {}).get("expandedArticleGroupId"),
             )
         )
     return offers
