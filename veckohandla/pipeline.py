@@ -158,13 +158,25 @@ def valj_alternativ(
     return None, bortvalda, False, False
 
 
+def enhetspris_for_val(alt: Alternativ, log=None) -> float | None:
+    """Effektivt pris per enhet för alternativets antal; jämförpriset om det inte går att räkna."""
+    pris = alt.product.effektivt_enhetspris(alt.qty)
+    if pris is None and alt.product.jamforpris is not None:
+        if log:
+            log(f"  Storpack: kan inte räkna enheter per förpackning för {alt.product.name} – använder jämförpriset")
+        return alt.product.jamforpris
+    return pris
+
+
 def valj_storpack(
     alternativ: list[Alternativ],
     finns: Callable[[str], bool | None],
     ingredienser_ok: Callable[[str], ingredienser.Kontroll] | None,
+    log=None,
 ) -> tuple[Alternativ | None, list[tuple[Alternativ, str]], bool, bool]:
     """För varor som alltid går åt: bland alternativen som klarar tillgänglighet och ingredienser väljs
-    det med lägst jämförpris. Bara alternativ med samma jämförenhet som det första godkända jämförs.
+    det med lägst effektivt pris per enhet för det antal som köps (se enhetspris_for_val). Bara
+    alternativ med samma jämförenhet som det första godkända jämförs.
 
     Returnerar samma fyrtupel som valj_alternativ.
     """
@@ -181,8 +193,9 @@ def valj_storpack(
     if not godkanda:
         return None, bortvalda, False, False
     enhet = godkanda[0][0].product.jamfor_enhet
-    jamforbara = [g for g in godkanda if g[0].product.jamfor_enhet == enhet and g[0].product.jamforpris is not None]
-    basta = min(jamforbara, key=lambda g: g[0].product.jamforpris) if jamforbara else godkanda[0]
+    priser = {id(g[0]): enhetspris_for_val(g[0], log) for g in godkanda if g[0].product.jamfor_enhet == enhet}
+    jamforbara = [g for g in godkanda if priser.get(id(g[0])) is not None]
+    basta = min(jamforbara, key=lambda g: priser[id(g[0])]) if jamforbara else godkanda[0]
     return basta[0], bortvalda, basta[1], basta[2]
 
 
@@ -449,8 +462,11 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
             log("Kontrollerar tillgänglighet i butiken och ingredienser…")
         for l in willys_lines:
             l.storpack = gar_alltid_at_rad(l.row, gar_alltid_at)
-            valj = valj_storpack if l.storpack else valj_alternativ
-            valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj(l.alternativ, sidor.finns, ingr)
+            if l.storpack:  # bara rader märkta GÅR ALLTID ÅT väljs på pris per enhet
+                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_storpack(
+                    l.alternativ, sidor.finns, ingr, log)
+            else:  # övriga rader behåller Claudes ordning
+                valt, l.bortvalda, l.kontrollera, l.tillganglighet_okand = valj_alternativ(l.alternativ, sidor.finns, ingr)
             if valt is None:
                 l.product, l.qty, l.willys_cost = None, 0, None
                 l.borttagen = "; ".join(f"{a.product.name}: {orsak}" for a, orsak in l.bortvalda)

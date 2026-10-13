@@ -68,6 +68,23 @@ class Product:
     jamfor_enhet: str = ""  # t.ex. "st", "kg", "l"
 
     @property
+    def enheter_per_forpackning(self) -> float | None:
+        """Ordinarie pris / ordinarie jämförpris, t.ex. 72 kr / 3,00 kr/st = 24 st."""
+        if self.jamfor_varde and self.price > 0:
+            return self.price / self.jamfor_varde
+        return None
+
+    def effektivt_enhetspris(self, antal: int) -> float | None:
+        """Pris per enhet för det antal som faktiskt köps, med mängdkampanj och max per hushåll.
+
+        Jämförpriset från en "2 för"-kampanj gäller bara om man köper kampanjantalet – det här gör inte.
+        """
+        n = self.enheter_per_forpackning
+        if not n or antal < 1:
+            return None
+        return round(self.cost(antal) / (antal * n), 4)
+
+    @property
     def jamforpris(self) -> float | None:
         """Jämförpris per enhet; gäller en kampanj räknas det på kampanjpriset."""
         if self.jamfor_varde is None:

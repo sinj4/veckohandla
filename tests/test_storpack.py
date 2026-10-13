@@ -1,4 +1,6 @@
-"""Varor som alltid går åt köps i den förpackning som har lägst jämförpris."""
+"""Varor som alltid går åt köps i den förpackning som har lägst pris per enhet."""
+
+import pytest
 
 from veckohandla.ingredienser import Kontroll
 from veckohandla.models import Product
@@ -118,3 +120,75 @@ def test_run_valjer_storpack_och_visar_det_i_rapporten(data_dir, monkeypatch):
     korg = json.loads((data_dir / f"{res.week}-korg.json").read_text())
     assert korg[0]["code"] == "AGG24_ST"
     assert "Storpack, lägst jämförpris (2,50 kr/st)" in report.render(res)
+
+
+# ---------- Punkt 3: effektivt pris per enhet för det antal som köps ----------
+
+def test_2_for_kampanj_raknas_pa_faktiskt_antal():
+    from veckohandla.pipeline import provningsordning
+    from veckohandla.planner import Reserv, Val
+
+    # Behov 6 ägg. 6p: 25 kr ordinarie (4,17 kr/st), "2 för 40". 10p: 35 kr (3,50 kr/st).
+    p6 = Product(store="W", code="AGG6K_ST", name="Ägg 6p", price=25.0, size="6p", jamfor_varde=4.17,
+                 jamfor_enhet="st", promo_qty=2, promo_total=40.0)
+    p10 = Product(store="W", code="AGG10_ST", name="Ägg 10p", price=35.0, size="10p", jamfor_varde=3.50, jamfor_enhet="st")
+    assert p6.jamforpris == 3.34  # kampanjens jämförpris – gäller bara vid köp av 2
+    alt = provningsordning(Val(rad=0, willys_kod="AGG6K_ST", willys_antal=1, butik=None, motivering="",
+                               willys_reserver=[Reserv(kod="AGG10_ST", antal=1)]), [p6, p10])
+    assert [(a.product.code, a.qty) for a in alt] == [("AGG6K_ST", 1), ("AGG10_ST", 1)]  # best_qty: 40 > 25
+    assert p6.effektivt_enhetspris(1) == pytest.approx(4.17, abs=0.01)
+    valt, _, _, _ = valj_storpack(alt, *ALLA_OK)
+    assert valt.product.code == "AGG10_ST"
+
+
+def test_effektivt_pris_raknar_med_promo_max():
+    p = Product(store="W", code="X", name="Ägg 6p", price=30.0, jamfor_varde=5.0, jamfor_enhet="st",
+                promo_qty=1, promo_total=18.0, promo_max=1)
+    assert p.enheter_per_forpackning == 6.0
+    assert p.effektivt_enhetspris(1) == 3.0
+    assert p.effektivt_enhetspris(2) == pytest.approx((18 + 30) / 12)  # andra paketet till ordinarie pris
+
+
+def test_utan_enheter_anvands_jamforpriset_och_loggas():
+    loggat = []
+    a = Alternativ(Product(store="W", code="A", name="Ägg okänd", price=0.0, jamfor_varde=2.0, jamfor_enhet="st"), 1)
+    b = Alternativ(agg("B", 59.90, 24), 1)  # 2,50 kr/st
+    valt, _, _, _ = valj_storpack([b, a], *ALLA_OK, log=loggat.append)
+    assert valt is a and any("använder jämförpriset" in m for m in loggat)
+
+
+def test_rad_utan_gar_alltid_at_behaller_claudes_val(data_dir, monkeypatch):
+    from veckohandla import pipeline
+    from veckohandla.planner import Produktval, Reserv, Val, Veckoplan
+
+    monkeypatch.setattr(pipeline.time, "sleep", lambda s: None)
+    monkeypatch.setattr(pipeline, "fetch_all_offers", lambda cfg, v: [])
+    lok_300g = Product(store="W", code="LOK_ST", name="Gul lök 300g", price=12.0, size="300g", jamfor_varde=40.0, jamfor_enhet="kg")
+    lok_2kg = Product(store="W", code="LOK2_ST", name="Gul lök 2kg", price=20.0, size="2kg", jamfor_varde=10.0, jamfor_enhet="kg")
+
+    class Planerare:
+        def __init__(self, *a):
+            pass
+
+        def plan_week(self, *a):
+            return Veckoplan(middagar=[], inkopslista=[Inkopsrad(vara="gul lök", behov="300 g", sokord="lök", till=["Måndag"])],
+                             kommentar="")
+
+        def choose_products(self, rows, cands, butiker, undvik, gar_alltid_at=None):
+            return Produktval(val=[Val(rad=0, willys_kod="LOK_ST", willys_antal=1, butik=None, motivering="",
+                                       willys_reserver=[Reserv(kod="LOK2_ST", antal=1)])])
+
+    class Session:
+        butik_vald = True
+
+        def search(self, q, store_name):
+            return [lok_300g, lok_2kg]
+
+        def kolla(self, code):
+            return True, {"ingredients": ""}
+
+    monkeypatch.setattr(pipeline, "Planner", Planerare)
+    cfg = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "W", "store_id": "1"}, "ica": []},
+           "hushall": {"sparrord": [], "gar_alltid_at": ["ägg"]}, "optimering": {}}
+    (rad,) = pipeline._run(cfg, Session(), False, log=lambda *a: None).lines
+    assert rad.product.code == "LOK_ST" and not rad.storpack  # 2 kg har lägre jämförpris men väljs inte
