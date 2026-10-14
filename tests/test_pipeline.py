@@ -37,7 +37,7 @@ def test_latest_cart_week_utan_korg_ger_tydligt_fel(data_dir):
         pipeline.latest_cart_week()
 
 
-# ---------- ICA-tröskeln (punkt 8) ----------
+# ---------- Butiksalternativ och tröskel (flaggning, inget flyttas ur korgen) ----------
 
 def _rad(vara):
     return Inkopsrad(vara=vara, behov="1 st", sokord=vara, till=["Måndag"])
@@ -50,26 +50,40 @@ def _line(vara, willys_kr, ica_kr, butik="ICA X"):
     return Line(row=_rad(vara), product=prod, qty=1, willys_cost=willys_kr, butik=val)
 
 
-def test_ica_over_troskeln_behaller_listan():
+def test_ica_over_troskeln_flaggas_men_ligger_kvar_i_korgen():
     lines = [_line("lax", 120.0, 60.0), _line("ost", 80.0, 50.0)]
-    listor, spar = tillampa_butikstroskel(lines, 75)
-    assert [l.row.vara for l in listor["ICA X"]] == ["lax", "ost"]
-    assert spar["ICA X"] == 90.0
+    flaggor, spar, kop = tillampa_butikstroskel(lines, 75)
+    assert [l.row.vara for l in flaggor["ICA X"]] == ["lax", "ost"]  # 60 + 30 = 90 ≥ 75
+    assert spar["ICA X"] == 90.0 and kop == {}
+    assert all(l.flaggad and l.i_korgen for l in lines)
+    assert [l.butik_spar for l in lines] == [60.0, 30.0]
 
 
-def test_ica_under_troskeln_flyttar_rader_med_willys_alternativ():
+def test_ica_under_troskeln_flaggas_inte():
+    lines = [_line("tomater", 83.7, 29.0)]  # sparar 54,70 < 75
+    flaggor, spar, kop = tillampa_butikstroskel(lines, 75)
+    assert flaggor == {} and spar == {} and kop == {}
+    assert not lines[0].flaggad and lines[0].i_korgen and lines[0].butik is not None
+
+
+def test_rad_utan_willys_produkt_blir_kop_i_butik_oavsett_troskel():
     lines = [_line("tomater", 83.7, 29.0), _line("specialost", None, 40.0)]
-    listor, spar = tillampa_butikstroskel(lines, 75)
-    # Tomaterna köps på Willys; bara raden utan Willys-alternativ blir kvar på ICA
-    assert lines[0].butik is None and not lines[0].i_butik
-    assert [l.row.vara for l in listor["ICA X"]] == ["specialost"]
-    assert spar["ICA X"] == 0.0
+    flaggor, _, kop = tillampa_butikstroskel(lines, 1000)
+    assert flaggor == {}
+    assert [l.row.vara for l in kop["ICA X"]] == ["specialost"]
 
 
-def test_ica_under_troskeln_utan_rader_kvar_ger_ingen_lista():
-    lines = [_line("tomater", 83.7, 29.0)]
-    listor, _ = tillampa_butikstroskel(lines, 75)
-    assert listor == {}
+def test_butik_som_inte_ar_billigare_ger_inget_alternativ():
+    lines = [_line("ost", 50.0, 60.0)]
+    flaggor, _, _ = tillampa_butikstroskel(lines, 0)
+    assert flaggor == {} and lines[0].butik is None and lines[0].i_korgen
+
+
+def test_troskeln_galler_per_butik():
+    lines = [_line("lax", 120.0, 60.0, butik="ICA A"), _line("ost", 80.0, 70.0, butik="ICA B")]
+    flaggor, spar, _ = tillampa_butikstroskel(lines, lambda store: 50)
+    assert list(flaggor) == ["ICA A"] and spar == {"ICA A": 60.0}  # ICA B sparar bara 10
+    assert lines[0].flaggad and not lines[1].flaggad
 
 
 # ---------- Spärrfilter och kategorifilter ----------

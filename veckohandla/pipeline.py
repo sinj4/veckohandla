@@ -35,7 +35,7 @@ class Line:
     product: Product | None
     qty: int
     willys_cost: float | None
-    butik: Val | None = None  # satt om varan ska köpas i en butik (ICA eller Willys i butik) i stället för e-handeln
+    butik: Val | None = None  # billigare alternativ i en butik (ICA eller Willys i butik) – varan ligger ändå i korgen
     alternativ: list[Alternativ] = field(default_factory=list)  # huvudval + reserver, i prövningsordning
     bortvalda: list[tuple[Alternativ, str]] = field(default_factory=list)  # (alternativ, orsak) som föll bort
     reserver: list[Alternativ] = field(default_factory=list)  # kvar efter valet – prövas om Willys nekar
@@ -45,6 +45,8 @@ class Line:
     storpack: bool = False  # varan går alltid åt – valt alternativ har lägst jämförpris
     butik_stoppad: str | None = None  # butikskampanjen stoppades av ingredienskontrollen, t.ex. "innehåller gris"
     butik_kontrollera: bool = False  # butiksraden saknar ingrediensuppgift i kött-, chark- eller färdigmatskategori
+    butik_spar: float | None = None  # vad butiksalternativet sparar mot korgens pris
+    flaggad: bool = False  # butikens samlade besparing når tröskeln – visas som "Billigare i butik"
     gar_alltid_at: str | None = None  # matchad post i hushall.gar_alltid_at (sparas i korgfilen)
     lager_kvar: float | None = None  # uppskattat lager som räcker veckan ut – köps inte
 
@@ -57,8 +59,13 @@ class Line:
         return self.product is not None and bool(self.bortvalda)
 
     @property
-    def i_butik(self) -> bool:
-        return self.butik is not None
+    def i_korgen(self) -> bool:
+        return self.product is not None and not self.row.kanske_hemma and self.qty > 0
+
+    @property
+    def kop_i_butik(self) -> bool:
+        """Ingen Willys-produkt men ett butiksalternativ – kan inte ligga i korgen."""
+        return self.butik is not None and self.product is None and not self.row.kanske_hemma
 
 
 @dataclass
@@ -68,11 +75,12 @@ class Result:
     lines: list[Line]
     willys_namn: str = "Willys"
     willys_i_butik_namn: str = "Willys (i butik)"
-    hamtar_i_butik: bool = False
-    butik_listor: dict[str, list[Line]] = field(default_factory=dict)
-    willys_total: float = 0.0
-    butik_total: float = 0.0
-    butik_besparing: dict[str, float] = field(default_factory=dict)
+    butik_flaggor: dict[str, list[Line]] = field(default_factory=dict)  # butik -> flaggade korgrader
+    butik_besparing: dict[str, float] = field(default_factory=dict)  # butik -> samlad besparing (flaggade)
+    kop_i_butik: dict[str, list[Line]] = field(default_factory=dict)  # butik -> rader utan Willys-produkt
+    willys_total: float = 0.0  # korgens pris
+    med_butiksalternativ: float = 0.0  # korgens pris om alla flaggade butiksalternativ tas
+    kop_i_butik_total: float = 0.0
     cart: dict | None = None
     cart_error: str | None = None  # t.ex. att Willys-inloggningen gått ut
     varningar: list[str] = field(default_factory=list)
@@ -241,14 +249,15 @@ def kontrollera_butiksrader(
     ik: ingredienser.Ingredienskontroll,
     log=print,
 ) -> None:
-    """Samma fläskskydd för butikslistorna som för korgen.
+    """Samma fläskskydd för butiksalternativen som för korgen.
 
     Willys i butik: ingredienserna för butik_kod kontrolleras (samma cache, samma GET-minne). Träff ->
-    raden flyttas tillbaka till e-handelsvalet. Saknas uppgift i kött/chark/färdigmat -> flagga.
-    ICA har ingen ingrediensuppgift: rader i kött-, chark- och färdigmatskategori flaggas.
+    butiksalternativet tas bort (e-handelsvaran ligger kvar i korgen). Saknas uppgift i
+    kött/chark/färdigmat -> "Kontrollera ingredienser". ICA har ingen ingrediensuppgift: alternativ i
+    kött-, chark- och färdigmatskategori flaggas.
     """
     for l in lines:
-        if not l.i_butik:
+        if l.butik is None:
             continue
         offer = kampanjer.get((l.butik.butik, l.butik.butik_kod or ""))
         if l.butik.butik == i_butik_namn:
@@ -265,33 +274,42 @@ def kontrollera_butiksrader(
 
 def tillampa_butikstroskel(
     lines: list[Line], threshold: float | Callable[[str], float]
-) -> tuple[dict[str, list[Line]], dict[str, float]]:
-    """Behåll en butikslista (ICA eller Willys i butik) bara om den sparar minst tröskeln i kr.
+) -> tuple[dict[str, list[Line]], dict[str, float], dict[str, list[Line]]]:
+    """Flagga billigare butiksalternativ. Inga rader flyttas ur korgen.
 
-    `threshold` är ett belopp eller en funktion butiksnamn -> belopp. Rader där butiken inte är
-    billigare än e-handeln flyttas alltid tillbaka. Under tröskeln flyttas rader med Willys-alternativ
-    tillbaka till e-handeln (l.butik = None); bara rader utan alternativ blir kvar på butikslistan.
-    Ändrar `lines` på plats.
+    - Alternativ som inte är billigare än korgens pris tas bort.
+    - Per butik: når den samlade besparingen tröskeln flaggas butikens korgrader ("Billigare i
+      butik"); under tröskeln flaggas inget.
+    - Rader utan Willys-produkt men med butiksalternativ blir "Köp i butik", oavsett tröskel.
+
+    `threshold` är ett belopp eller en funktion butiksnamn -> belopp. Returnerar
+    (flaggade rader per butik, besparing per flaggad butik, köp i butik per butik). Ändrar `lines`.
     """
     troskel = threshold if callable(threshold) else (lambda store: threshold)
     for l in lines:
-        if l.i_butik and l.willys_cost is not None and l.butik.butik_kostnad_kr >= l.willys_cost:
-            l.butik = None
-    butik_listor: dict[str, list[Line]] = {}
-    butik_besparing: dict[str, float] = {}
-    for store in sorted({l.butik.butik for l in lines if l.i_butik}):
-        threshold = troskel(store)
-        store_lines = [l for l in lines if l.i_butik and l.butik.butik == store]
-        saving = sum((l.willys_cost or 0) - l.butik.butik_kostnad_kr for l in store_lines if l.willys_cost)
-        if saving < threshold:
-            for l in store_lines:
-                if l.product:
-                    l.butik = None
-            store_lines = [l for l in store_lines if l.product is None]
-        if store_lines:
-            butik_listor[store] = store_lines
-            butik_besparing[store] = round(saving if saving >= threshold else 0.0, 2)
-    return butik_listor, butik_besparing
+        l.flaggad, l.butik_spar = False, None
+        if l.butik is None or l.row.kanske_hemma:
+            continue
+        if l.product is not None and l.willys_cost is not None:
+            if l.butik.butik_kostnad_kr >= l.willys_cost:
+                l.butik = None  # inte billigare – inget att flagga
+            else:
+                l.butik_spar = round(l.willys_cost - l.butik.butik_kostnad_kr, 2)
+
+    flaggor: dict[str, list[Line]] = {}
+    besparing: dict[str, float] = {}
+    kop_i_butik: dict[str, list[Line]] = {}
+    for store in sorted({l.butik.butik for l in lines if l.butik is not None}):
+        i_korgen = [l for l in lines if l.butik is not None and l.butik.butik == store and l.butik_spar is not None]
+        spar = round(sum(l.butik_spar for l in i_korgen), 2)
+        if i_korgen and spar >= troskel(store):
+            for l in i_korgen:
+                l.flaggad = True
+            flaggor[store], besparing[store] = i_korgen, spar
+        utan = [l for l in lines if l.kop_i_butik and l.butik.butik == store]
+        if utan:
+            kop_i_butik[store] = utan
+    return flaggor, besparing, kop_i_butik
 
 
 def willys_i_butik_namn(cfg: dict) -> str:
@@ -299,15 +317,13 @@ def willys_i_butik_namn(cfg: dict) -> str:
 
 
 def butikens_troskel(cfg: dict) -> Callable[[str], float]:
-    """Besparingströskel per butik. Hämtas e-handelsordern i Willys-butiken krävs ingen tröskel för
-    butikens egna kampanjer – de köps ändå på plats."""
-    w = cfg["butiker"]["willys"]
+    """Minsta samlade besparing per butik för att flagga dess alternativ i rapporten."""
     opt = cfg.get("optimering", {})
     i_butik = willys_i_butik_namn(cfg)
 
     def troskel(store: str) -> float:
         if store == i_butik:
-            return 0.0 if w.get("hamtar_i_butik", False) else opt.get("min_besparing_willys_i_butik_kr", 40)
+            return opt.get("min_besparing_willys_i_butik_kr", 10)
         return opt.get("min_besparing_for_delning_kr", 75)
 
     return troskel
@@ -442,8 +458,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
         )
 
     result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar,
-                    willys_namn=willys_name, willys_i_butik_namn=i_butik_namn,
-                    hamtar_i_butik=cfg["butiker"]["willys"].get("hamtar_i_butik", False))
+                    willys_namn=willys_name, willys_i_butik_namn=i_butik_namn)
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
     with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
@@ -451,20 +466,16 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
         ik.hamta = sidor.detaljer  # samma GET för tillgänglighet och ingredienser
         ingr = ik.kontrollera if ingr_ord else None
 
-        # Butikslistorna går genom samma fläskskydd som korgen – före tröskeln, så att besparingen
-        # bara räknas på rader som faktiskt får köpas
+        # Butiksalternativen går genom samma fläskskydd som korgen
         if ingr_ord:
             kampanjer = {(o.store, o.code): o for o in butiks_offers if o.code}
             kontrollera_butiksrader(lines, i_butik_namn, kampanjer, ik, log)
-
-        # Ett butiksbesök lönar sig bara om det sparar tillräckligt – annars köps allt i e-handeln
-        result.butik_listor, result.butik_besparing = tillampa_butikstroskel(lines, butikens_troskel(cfg))
 
         # Varor som alltid går åt: räcker det uppskattade lagret från tidigare veckors korgar köps de inte
         korgar = lager.senaste_korgar(DATA, result.week) if any(p.per_vecka for p in gar_poster) else []
         for l in lines:
             post = lager.matchande_post(l.row.vara, gar_poster)
-            if not post or l.i_butik:
+            if not post:
                 continue
             l.gar_alltid_at = post.vara
             kvar = lager.uppskattat_lager(post, korgar, result.week, log) if post.per_vecka else None
@@ -473,7 +484,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
                 l.row.kanske_hemma, l.lager_kvar = True, kvar
                 log(f"  Lager: {l.row.vara} – uppskattat kvar ca {kvar:.0f}, räcker till {behov:.0f} – köps inte")
 
-        willys_lines = [l for l in lines if l.alternativ and not l.i_butik]
+        willys_lines = [l for l in lines if l.alternativ]
         if willys_lines:
             log("Kontrollerar tillgänglighet i butiken och ingredienser…")
         for l in willys_lines:
@@ -498,16 +509,21 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
                 rest = l.alternativ[l.alternativ.index(valt) + 1:]
             l.reserver = godkanda_reserver(rest, ingr)
 
-    result.willys_total = round(
-        sum(l.willys_cost or 0 for l in lines if l.product and not l.i_butik and not l.row.kanske_hemma), 2
-    )
-    result.butik_total = round(sum(l.butik.butik_kostnad_kr for l in lines if l.i_butik), 2)
+    # Flaggning efter tillgänglighets- och ingredienskontrollen, så att besparingen räknas mot den
+    # vara som faktiskt ligger i korgen. Inga rader flyttas ur korgen.
+    result.butik_flaggor, result.butik_besparing, result.kop_i_butik = tillampa_butikstroskel(
+        lines, butikens_troskel(cfg))
+
+    result.willys_total = round(sum(l.willys_cost or 0 for l in lines if l.i_korgen), 2)
+    result.med_butiksalternativ = round(result.willys_total - sum(result.butik_besparing.values()), 2)
+    result.kop_i_butik_total = round(
+        sum(l.butik.butik_kostnad_kr for rader in result.kop_i_butik.values() for l in rader), 2)
 
     cart_lines = [
         {**_korgrad(l.product, l.qty), "reserver": [_korgrad(a.product, a.qty) for a in l.reserver],
          **({"gar_alltid_at": l.gar_alltid_at} if l.gar_alltid_at else {})}
         for l in lines
-        if l.product and not l.i_butik and not l.row.kanske_hemma and l.qty > 0
+        if l.i_korgen  # även rader med billigare butiksalternativ – korgen ska vara komplett
     ]
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))

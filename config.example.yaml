@@ -57,8 +57,7 @@ butiker:
     namn: Willys Vagnhärad Lånesta
     store_id: "2341"      # e-handelsbutiken – hitta din: python -m veckohandla hitta-willys <ort>
     i_butik: true         # hämta även kampanjer som bara gäller i butiken
-    hamtar_i_butik: false # true om du hämtar e-handelsordern i butiken – då krävs ingen besparingströskel
-  # ICA-butiker används för kampanjjämförelse; billigare ICA-varor blir en butikslista.
+  # ICA-butiker används för kampanjjämförelse; billigare ICA-varor flaggas i rapporten (korgen är ändå komplett).
   # Slug = sista delen av butikens erbjudandesida, t.ex. https://www.ica.se/erbjudanden/<slug>/
   ica:
     - namn: ICA Kvantum Trossen
@@ -67,10 +66,10 @@ butiker:
       erbjudande_slug: ica-supermarket-vagnharad-1004281
 
 optimering:
-  # Föreslå ett ICA-besök bara om det sparar minst så här mycket per butik
-  min_besparing_for_delning_kr: 75
-  # Willys butikskampanjer (gäller bara i butik) när du inte hämtar ordern i butiken
-  min_besparing_willys_i_butik_kr: 40
+  # Allt som finns i e-handeln ligger alltid i korgen. Billigare butiksalternativ flaggas i rapporten
+  # bara om butikens samlade besparing når tröskeln:
+  min_besparing_for_delning_kr: 75       # per ICA-butik
+  min_besparing_willys_i_butik_kr: 10    # Willys butikskampanjer
   # Kampanjkategorier som inte är mat och inte skickas till menyplaneraren.
   # Willys: första ledet i googleAnalyticsCategory, ICA: articleGroupName.
   # Saknas nyckeln används samma lista som standard; [] stänger av filtret.

@@ -11,7 +11,7 @@ Varje vecka:
 1. **Skannar kampanjer** i Willys e-handel, Willys-butikens egna hyllkampanjer och valfria ICA-butiker (via ica.se/erbjudanden).
 2. **Planerar middagar** med Claude utifrån kampanjerna och ditt hushåll: antal personer, barnens åldrar, önskemål och sådant som ska undvikas. Rätter från de senaste veckorna upprepas inte.
 3. **Matchar varje ingrediens** mot sortimentet i *din* Willys-butik och väljer billigaste rimliga vara, plus upp till 3 reserver. Den tar hänsyn till "2 för"-kampanjer, "max 1 köp/hushåll" och lösvikt.
-4. **Jämför med butikskampanjer.** Kampanjer som bara gäller i Willys-butiken hamnar på listan "Willys i butik", med kostnaden räknad ur kampanjen. Den listan köps när du hämtar ordern eller vid ett snabbt besök. Sparar ett ICA-besök tillräckligt blir de varorna en separat ICA-lista. Inget av detta läggs i e-handelskorgen.
+4. **Jämför med butikskampanjer, men korgen är alltid komplett.** Allt som finns i Willys e-handel läggs i korgen till e-handelns pris. Är en vara billigare som Willys butikskampanj eller på ICA flaggas raden i rapporten, till exempel "Billigare i butik: … spar 29,10 kr. Ta bort ur korgen om du köper den där." Direkt efter varukorgsrutan finns en sammanfattning per butik. Flaggor visas bara för en butik vars samlade besparing når tröskeln. Kostnaden för Willys butikskampanjer räknas ur kampanjen. Varor som inte finns i e-handeln alls listas som "Köp i butik".
 5. **Kontrollerar att varan finns i butiken och att ingredienserna klarar dina spärrord**, till exempel fläsk i färdiga köttbullar. Faller huvudvalet bort tas nästa reserv.
 6. **Fyller Willys-varukorgen.** Boten lägger bara till det som fattas och tar aldrig bort något. Den lägger **aldrig** någon order, det gör du själv efter att ha granskat korgen.
 7. **Skickar en rapport** med meny, recept, varukorg och prisuppgifter, via mejl och som HTML-fil. Går något fel kommer ett felmejl i stället.
@@ -65,9 +65,8 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`alltid_kop`**: basvaror som läggs i korgen varje vecka.
 - **`sparrord_ingredienser`**: ord som bara jämförs mot ingredienslistan för valda produkter. Det fångar till exempel köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Även `sparrord` jämförs mot ingredienserna. En vara som matchar byts mot nästa reserv. Fungerar inget alternativ märks raden "Köp manuellt". Kött, chark och färdigmat utan ingrediensuppgift märks "Kontrollera ingredienser". Ingredienslistor cachas per produkt i `data/ingredienser-cache.json` och hämtas på nytt efter 30 dagar.
 - **`butiker.willys.i_butik`** (standard `true`): hämta även Willys kampanjer som bara gäller i butiken. Kampanjer som också finns i e-handeln räknas bara en gång.
-- **`butiker.willys.hamtar_i_butik`** (standard `false`): sätt till `true` om du hämtar e-handelsordern i butiken. Då kräver listan "Willys i butik" ingen besparingströskel.
-- **`min_besparing_willys_i_butik_kr`** (standard 40, under `optimering`): minsta besparing för listan "Willys i butik" när du inte hämtar i butiken.
-- **`min_besparing_for_delning_kr`**: hur mycket ett extra ICA-besök minst måste spara. Under gränsen köps allt som finns på Willys där.
+- **`min_besparing_willys_i_butik_kr`** (standard 10, under `optimering`): minsta samlade besparing för att Willys butikskampanjer ska flaggas i rapporten.
+- **`min_besparing_for_delning_kr`** (under `optimering`): minsta samlade besparing per ICA-butik för att flagga dess kampanjer. Under trösklarna flaggas inget, men varorna ligger alltid i korgen.
 - **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
 

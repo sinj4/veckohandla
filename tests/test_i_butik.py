@@ -120,48 +120,39 @@ def _line(vara, willys_kr, butik_kr, butik="Willys Test (i butik)"):
     return Line(row=Inkopsrad(vara=vara, behov="1", sokord=vara, till=[]), product=prod, qty=1, willys_cost=willys_kr, butik=v)
 
 
-def test_troskel_utan_hamtning_i_butik():
+def test_troskel_standard():
     tr = butikens_troskel(CFG)
-    assert tr("Willys Test (i butik)") == 40 and tr("ICA X") == 75
-    lines = [_line("färs", 89.9, 79.9)]  # sparar 10 kr < 40
-    listor, _ = tillampa_butikstroskel(lines, tr)
-    assert listor == {} and lines[0].butik is None
-    lines = [_line("färs", 143.8, 79.9)]  # sparar 63,90 kr
-    listor, spar = tillampa_butikstroskel(lines, tr)
-    assert spar["Willys Test (i butik)"] == pytest.approx(63.9)
+    assert tr("Willys Test (i butik)") == 10 and tr("ICA X") == 75
+    lines = [_line("färs", 89.9, 85.9)]  # sparar 4 kr < 10
+    flaggor, _, _ = tillampa_butikstroskel(lines, tr)
+    assert flaggor == {} and lines[0].i_korgen and not lines[0].flaggad
+    lines = [_line("färs", 89.9, 79.9)]  # sparar 10 kr
+    flaggor, spar, _ = tillampa_butikstroskel(lines, tr)
+    assert spar["Willys Test (i butik)"] == pytest.approx(10.0) and lines[0].flaggad and lines[0].i_korgen
 
 
-def test_troskel_med_hamtning_i_butik():
-    cfg = {**CFG, "butiker": {**CFG["butiker"], "willys": {**CFG["butiker"]["willys"], "hamtar_i_butik": True}}}
-    tr = butikens_troskel(cfg)
-    assert tr("Willys Test (i butik)") == 0 and tr("ICA X") == 75
-    lines = [_line("färs", 89.9, 79.9)]  # sparar bara 10 kr, men köps ändå vid hämtningen
-    listor, _ = tillampa_butikstroskel(lines, tr)
-    assert [l.row.vara for l in listor["Willys Test (i butik)"]] == ["färs"]
+def test_troskel_fran_config():
+    cfg = {**CFG, "optimering": {"min_besparing_willys_i_butik_kr": 40, "min_besparing_for_delning_kr": 75}}
+    assert butikens_troskel(cfg)("Willys Test (i butik)") == 40
 
 
-def test_butik_som_inte_ar_billigare_flyttas_alltid_tillbaka():
-    cfg = {**CFG, "butiker": {**CFG["butiker"], "willys": {**CFG["butiker"]["willys"], "hamtar_i_butik": True}}}
-    lines = [_line("färs", 79.9, 89.9)]
-    listor, _ = tillampa_butikstroskel(lines, butikens_troskel(cfg))
-    assert listor == {} and lines[0].butik is None
-
-
-def test_rapporten_har_egen_lista_for_willys_i_butik():
+def test_rapporten_flaggar_raden_och_sammanfattar_per_butik():
     from veckohandla import report
     from veckohandla.pipeline import Result
     from veckohandla.planner import Veckoplan
 
-    l = _line("nötfärs", 179.8, 0)
+    l = _line("nötfärs", 109.0, 0)
     o = willys._to_offer(offline_item("101840286_ST"), "W")
     l.butik.butik_kod, l.butik.butik_antal = o.code, 1
     berakna_butikskostnad(l.butik, {o.code: o})
     res = Result(week="2026-v42", plan=Veckoplan(middagar=[], inkopslista=[], kommentar=""), lines=[l],
                  willys_namn="Willys Test", willys_i_butik_namn="Willys Test (i butik)")
-    res.butik_listor, res.butik_besparing = tillampa_butikstroskel([l], butikens_troskel(CFG))
+    res.butik_flaggor, res.butik_besparing, res.kop_i_butik = tillampa_butikstroskel([l], butikens_troskel(CFG))
+    res.willys_total = 109.0
+    res.med_butiksalternativ = round(109.0 - res.butik_besparing["Willys Test (i butik)"], 2)
     html = report.render(res)
-    assert "<h2>Willys i butik</h2>" in html
-    assert "Nötfärs 800g: 79,90/st" in html and "79,90 kr" in html
-    # Raden ligger inte i e-handelstabellen
-    assert html.index("<h2>Willys Test –") < html.index("<h2>Willys i butik</h2>")
-    assert "nötfärs</td><td>Nötfärs" in html
+    assert ("Billigare i butik: Nötfärs 800g: 79,90/st 79,90 kr på Willys Test (i butik), spar 29,10 kr. "
+            "Ta bort ur korgen om du köper den där.") in html
+    assert "<b>Willys i butik</b>: spar 29 kr, ta bort Nötfärs ur korgen" in html
+    assert "<h2>Korgen: 109,00 kr</h2>" in html
+    assert "Om du tar alla flaggade butiksalternativ: <b>79,90 kr</b>" in html

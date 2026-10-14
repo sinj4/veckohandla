@@ -59,7 +59,10 @@ class Reserv(BaseModel):
 
 class Val(BaseModel):
     rad: int = Field(description="Index i inköpslistan")
-    willys_kod: str | None = Field(description="Vald Willys-produktkod eller null om inget passar")
+    willys_kod: str | None = Field(
+        description="Vald Willys-produktkod – alltid när en godtagbar kandidat finns, även om en butikskampanj "
+        "är billigare. null bara om ingen kandidat passar"
+    )
     willys_antal: int = Field(description="Antal förpackningar/styck. Lösvikt märkt 'per st' räknas i styck (8 bananer = 8)")
     willys_reserver: list[Reserv] = Field(
         default_factory=list,
@@ -177,10 +180,10 @@ Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or
 Bygg huvudsakligen på kampanjvarorna nedan, särskilt protein och grönsaker. Läs varunamnen exakt
 (t.ex. är kycklinglever inte kycklingfilé){barnregel}.
 Det finns tre sorters kampanjer:
-- Willys e-handel: läggs direkt i varukorgen. Huvudkällan.
-- Willys i butik: gäller bara i Willys-butiken och köps vid hämtning av ordern eller vid ett snabbt besök.
-  Använd dem när de är tydligt billigare än e-handelns motsvarighet.
-- ICA-butiker: kräver en egen resa, så använd dem bara när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
+- Willys e-handel: läggs direkt i varukorgen. Huvudkällan – allt som går ska finnas här.
+- Willys i butik: gäller bara i Willys-butiken. E-handelns motsvarighet läggs ändå i korgen; den
+  billigare butikskampanjen visas som tips (t.ex. vid hämtning av ordern).
+- ICA-butiker: kräver en egen resa och visas också bara som tips när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
 
 Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
@@ -227,11 +230,13 @@ basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står
   storlekar av samma vara bland huvudval och reserver, även förpackningar som är större än behovet
   (tak ungefär 30 st eller 2 kg per förpackning). Antal: så få förpackningar som täcker behovet,
   normalt 1. Koden väljer sedan den med lägst jämförpris.
-- Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är tydligt billigare för
-  samma behov: ange butik (exakt butiksnamn), butik_kod (kampanjens kod i hakparentes – den måste höra
-  till samma butik), butik_erbjudande, butik_antal (minst 1) och uppskattad butik_kostnad_kr. För
+- Välj ALLTID en Willys-produkt (willys_kod) när det finns en godtagbar kandidat, även när en
+  butikskampanj är billigare. Korgen ska vara komplett; butikskampanjen visas bara som ett tips.
+- Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är billigare för samma
+  behov: ange dessutom butik (exakt butiksnamn), butik_kod (kampanjens kod i hakparentes – den måste
+  höra till samma butik), butik_erbjudande, butik_antal (minst 1) och uppskattad butik_kostnad_kr. För
   "Willys … (i butik)" räknar koden själv kostnaden ur kampanjen. Ett butiksval utan giltig kod
-  ignoreras. Välj ändå en Willys-produkt i e-handeln som reserv.
+  ignoreras.
 
 # Inköpsrader med Willys-kandidater
 {chr(10).join(blocks)}
