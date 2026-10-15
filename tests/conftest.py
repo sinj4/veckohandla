@@ -32,3 +32,11 @@ def fixtur_json(name: str) -> dict:
 
 def fixtur_text(name: str) -> str:
     return (FIXTURES / name).read_text()
+
+
+@pytest.fixture(autouse=True)
+def farska_kampanjer(monkeypatch):
+    """Kampanjerna räknas som färska i testerna; tester av själva kontrollen använder originalet."""
+    from veckohandla import pipeline
+
+    monkeypatch.setattr(pipeline, "kontrollera_farska_kampanjer", lambda cfg, offers, idag=None: None)

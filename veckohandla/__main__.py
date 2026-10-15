@@ -21,10 +21,15 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def config_path() -> Path:
+    """VECKOHANDLA_CONFIG pekar ut config-filen (t.ex. i ett privat repo); standard är config.yaml här."""
+    return Path(os.environ.get("VECKOHANDLA_CONFIG") or ROOT / "config.yaml")
+
+
 def load_config() -> dict:
-    path = ROOT / "config.yaml"
+    path = config_path()
     if not path.exists():
-        sys.exit("config.yaml saknas – kör: cp config.example.yaml config.yaml och anpassa den")
+        sys.exit(f"{path} saknas – kör: cp config.example.yaml config.yaml och anpassa den")
     return yaml.safe_load(path.read_text())
 
 
@@ -50,6 +55,9 @@ def main() -> int:
     k = sub.add_parser("kor")
     k.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i Willys-varukorgen (ingen beställning)")
     k.add_argument("--ingen-mejl", action="store_true")
+    k.add_argument("--en-gang-per-vecka", action="store_true",
+                   help="avsluta direkt om veckans plan redan finns (för schemalagda körningar)")
+    k.add_argument("--onskemal", default="", help='önskemål bara för den här körningen, t.ex. "fisk två gånger"')
     args = ap.parse_args()
 
     if args.cmd == "hitta-willys":
@@ -107,8 +115,13 @@ def main() -> int:
             print(f"För få i korgen efteråt: {', '.join(res['missing'])}")
         return 0
 
+    from .pipeline import KampanjerInteUppe
+
     try:
         return kor(cfg, args)
+    except KampanjerInteUppe as e:
+        print(e, flush=True)  # inte ett fel – schemat försöker igen senare
+        return 3
     except Exception:
         tb = traceback.format_exc()
         print(tb, file=sys.stderr, flush=True)
@@ -137,7 +150,14 @@ def _felmejl(cfg: dict, tb: str) -> None:
 
 def kor(cfg: dict, args) -> int:
     from . import pipeline, report
-    from .pipeline import run
+    from .pipeline import run, week_id
+
+    if args.en_gang_per_vecka and (pipeline.DATA / f"{week_id()}.json").exists():
+        print(f"Veckans plan finns redan ({week_id()}) – inget att göra.")
+        return 0
+    if args.onskemal.strip():
+        h = cfg["hushall"]
+        h["preferenser"] = f"{h.get('preferenser', '').strip()}\nÖnskemål för just den här veckan: {args.onskemal.strip()}"
 
     res = run(cfg, fill_cart=args.fyll_varukorg)
 

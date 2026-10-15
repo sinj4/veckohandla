@@ -40,6 +40,12 @@ cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 
 Du kan också planera och fylla korgen i ett steg med `kor --fyll-varukorg`.
 
+Flaggor och miljövariabler för schemalagda körningar:
+- **`kor --en-gang-per-vecka`** avslutar direkt om veckans plan (`data/<vecka>.json`) redan finns. Ett schema kan då köra flera gånger, och den första lyckade körningen gäller.
+- **`kor --onskemal "fisk två gånger, ingen kyckling"`** lägger till önskemål bara för den här körningen.
+- **Kontroll av kampanjerna:** innan Claude anropas kontrolleras att veckans kampanjer är uppe. Minst en Willys butikskampanj måste ha `startDate` i innevarande ISO-vecka. E-handelns kampanjer saknar startdatum. Är kampanjerna inte uppe avslutar `kor` med **exit-kod 3** och meddelandet "Veckans kampanjer är inte uppe än", utan Claude-anrop och utan felmejl.
+- **`VECKOHANDLA_CONFIG`** pekar ut config-filen och **`VECKOHANDLA_DATA`** datakatalogen, till exempel i ett privat repo. Standard är `config.yaml` och `data/` i projektkatalogen.
+
 `fyll-varukorg` går att köra flera gånger. Boten läser först korgen och lägger bara till det som fattas, så du får inga dubbla mängder och inget tas bort. Rader med samma vara, till exempel bananer både i `alltid_kop` och i ett recept, räknas ihop. Nekar Willys en vara prövas radens reserver i tur och ordning, och bytena visas i terminalen och rapporten. Har Willys-inloggningen gått ut kommer rapporten och mejlet ändå, med instruktioner om att köra `login` och sedan `fyll-varukorg <vecka>`.
 
 ### Schemaläggning (macOS)

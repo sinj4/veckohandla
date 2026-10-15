@@ -373,6 +373,31 @@ class AllaSokningarMisslyckades(RuntimeError):
     pass
 
 
+class KampanjerInteUppe(RuntimeError):
+    """Veckans kampanjer är inte publicerade än – försök igen senare (exit 3, inget felmejl)."""
+
+
+def kampanjerna_ar_farska(offers: list[Offer], idag: dt.date) -> bool:
+    """Finns någon Willys-kampanj med startdatum i innevarande ISO-vecka?
+
+    Bara Willys butikskampanjer (/search/campaigns/offline) har startDate; e-handelns kampanjer har
+    det inte. Veckokampanjerna börjar på måndagen.
+    """
+    vecka = idag.isocalendar()[:2]
+    return any(o.start and o.start.isocalendar()[:2] == vecka for o in offers)
+
+
+def kontrollera_farska_kampanjer(cfg: dict, offers: list[Offer], idag: dt.date | None = None) -> None:
+    """Avbryt innan Claude anropas om veckans kampanjer inte är uppe än."""
+    idag = idag or dt.date.today()
+    w = cfg["butiker"]["willys"]
+    if not any(o.start for o in offers):
+        # Butikskampanjerna hämtas inte (i_butik: false) – hämta dem bara för kontrollen
+        offers = willys.fetch_offers(w["store_id"], willys_i_butik_namn(cfg), kanal="offline")
+    if not kampanjerna_ar_farska(offers, idag):
+        raise KampanjerInteUppe("Veckans kampanjer är inte uppe än")
+
+
 def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
     c = cfg["claude"]
     planner = Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
@@ -384,6 +409,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     offers = fetch_all_offers(cfg, varningar)
     for v in varningar[fore_kampanjer:]:
         log(f"  VARNING: {v}")
+    kontrollera_farska_kampanjer(cfg, offers)
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     offers = [o for o in offers if not _blocked(f"{o.name} {o.brand}", sparrord)]
     uteslut = cfg.get("optimering", {}).get("uteslut_kategorier", UTESLUT_KATEGORIER)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import math
 import re
 from dataclasses import dataclass, field
@@ -19,6 +20,7 @@ class Offer:
     online: bool | None = None
     code: str = ""  # produktkod (Willys) eller erbjudande-id (ICA)
     kategori_id: int | None = None  # ICA: expandedArticleGroupId
+    start: dt.date | None = None  # kampanjens startdatum (Willys butikskampanjer har det)
     size: str = ""
     # Tolkad kampanj (Willys), för att räkna kostnad i koden i stället för att låta Claude uppskatta
     promo_qty: int | None = None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 
 import httpx
@@ -69,11 +70,23 @@ def _to_offer(item: dict, store_name: str) -> Offer:
         online=item.get("online"),
         code=code,
         size=item.get("displayVolume") or "",
+        start=_datum(promo.get("startDate")),
     )
     weight = _piece_weight_kg(o.size) if code.endswith("_KG") else None
     if tolkad := _tolka_promo(promo, weight):
         o.promo_qty, o.promo_total, _, o.promo_max = tolkad
     return o
+
+
+def _datum(text: str | None) -> dt.date | None:
+    """'12/10-2026' -> 2026-10-12 (Willys startDate/endDate). None om fältet saknas eller är okänt."""
+    m = re.fullmatch(r"(\d{1,2})/(\d{1,2})-(\d{4})", (text or "").strip())
+    if not m:
+        return None
+    try:
+        return dt.date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+    except ValueError:
+        return None
 
 
 def _tolka_promo(pr: dict, weight: float | None) -> tuple[int, float, str, int | None] | None:
