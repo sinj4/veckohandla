@@ -118,6 +118,7 @@ class Planner:
         self.model_meny = model_meny
         self.model_produkter = model_produkter or model_meny
         self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
+        self._claude: tuple[str, str] | None = None  # (sökväg, version), loggas vid första anropet
 
     def _parse(self, prompt: str, schema: type[BaseModel], system: str, effort: str, model: str):
         if self.client is None:
@@ -136,8 +137,21 @@ class Planner:
             raise RuntimeError("Svaret blev för långt (max_tokens)")
         return resp.parsed_output
 
+    def _claude_bin(self) -> tuple[str, str]:
+        """Välj Claude Code-binär (CLAUDE_BIN, PATH, ~/.local/bin) och logga sökväg och version en gång."""
+        if self._claude is None:
+            exe = os.environ.get("CLAUDE_BIN") or shutil.which("claude") or str(Path.home() / ".local/bin/claude")
+            try:
+                v = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=60)
+                version = (v.stdout or v.stderr).strip() or "okänd"
+            except (OSError, subprocess.SubprocessError) as e:
+                version = f"okänd ({e})"
+            print(f"Claude Code: {exe} – version {version}", flush=True)
+            self._claude = (exe, version)
+        return self._claude
+
     def _parse_claude_code(self, prompt: str, schema: type[BaseModel], system: str, effort: str, model: str):
-        exe = shutil.which("claude") or str(Path.home() / ".local/bin/claude")
+        exe, version = self._claude_bin()
         cmd = [
             exe, "-p",
             "--output-format", "json",
@@ -150,6 +164,12 @@ class Planner:
         ]
         env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
         proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=1200, env=env)
+        svar = f"{proc.stdout}\n{proc.stderr}"
+        if "does not support this model" in svar or "newer is required" in svar:
+            raise RuntimeError(
+                f"Claude Code är för gammal för modellen {model}: {exe} (version {version}). "
+                f"Uppdatera Claude Code. Svar: {svar.strip()[-300:]}"
+            )
         try:
             out = json.loads(proc.stdout)
         except json.JSONDecodeError:
