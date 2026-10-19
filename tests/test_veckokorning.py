@@ -151,3 +151,103 @@ def test_onskemal_bara_for_den_har_korningen(config_fil, data_dir, monkeypatch):
     kor_main(monkeypatch, "--ingen-mejl", "--onskemal", "fisk två gånger, ingen kyckling")
     assert sett == ["Barnvänligt.\nÖnskemål för just den här veckan: fisk två gånger, ingen kyckling"]
     assert "fisk" not in config_fil.read_text()  # config-filen ändras inte
+
+
+# ---------- Mejlet (exit 4) ----------
+
+@pytest.fixture
+def mejl_cfg(config_fil):
+    cfg = yaml.safe_load(config_fil.read_text())
+    cfg["epost"] = {"till": "x@example.com", "fran": "y@example.com", "smtp_host": "smtp.example.com", "smtp_port": 587}
+    config_fil.write_text(yaml.safe_dump(cfg, allow_unicode=True))
+    return cfg
+
+
+@pytest.fixture
+def klar_korning(data_dir, monkeypatch):
+    from veckohandla.planner import Veckoplan
+
+    res = pipeline.Result(week="2026-v43", plan=Veckoplan(middagar=[], inkopslista=[], kommentar=""), lines=[])
+    monkeypatch.setattr(pipeline, "run", lambda cfg, fill_cart=False: res)
+    return data_dir / "2026-v43.html"
+
+
+class FejkSMTP:
+    """Mockad smtplib.SMTP; fel styrs via klassattribut."""
+
+    login_fel = None
+    send_fel = None
+    skickade = []
+
+    def __init__(self, host, port):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def starttls(self):
+        pass
+
+    def login(self, user, pw):
+        if self.login_fel:
+            raise self.login_fel
+
+    def send_message(self, msg):
+        if self.send_fel:
+            raise self.send_fel
+        FejkSMTP.skickade.append(msg["To"])
+
+
+@pytest.fixture
+def smtp(monkeypatch):
+    import smtplib
+
+    monkeypatch.setattr(FejkSMTP, "login_fel", None)
+    monkeypatch.setattr(FejkSMTP, "send_fel", None)
+    monkeypatch.setattr(FejkSMTP, "skickade", [])
+    monkeypatch.setattr(smtplib, "SMTP", FejkSMTP)
+    monkeypatch.setenv("SMTP_PASSWORD", "fejk")
+    return FejkSMTP
+
+
+def test_mejl_skickat_ger_exit_0(mejl_cfg, klar_korning, smtp, monkeypatch, capsys):
+    assert kor_main(monkeypatch) == 0
+    assert smtp.skickade == ["x@example.com"]
+    assert "Mejl skickat till x@example.com" in capsys.readouterr().out
+
+
+def test_saknat_losenord_ger_exit_4(mejl_cfg, klar_korning, smtp, monkeypatch, capsys):
+    monkeypatch.delenv("SMTP_PASSWORD")
+    assert kor_main(monkeypatch) == 4
+    err = capsys.readouterr().err
+    assert "MEJLET SKICKADES INTE: SMTP_PASSWORD saknas" in err and str(klar_korning) in err
+    assert klar_korning.exists()  # rapporten sparas ändå
+    assert smtp.skickade == []
+
+
+def test_nekad_inloggning_ger_exit_4(mejl_cfg, klar_korning, smtp, monkeypatch, capsys):
+    import smtplib
+
+    smtp.login_fel = smtplib.SMTPAuthenticationError(535, b"Username and Password not accepted")
+    assert kor_main(monkeypatch) == 4
+    assert "SMTP-inloggningen nekades (535)" in capsys.readouterr().err
+    assert klar_korning.exists()
+
+
+@pytest.mark.parametrize("fel", ["smtp", "natverk"])
+def test_misslyckad_sandning_ger_exit_4(mejl_cfg, klar_korning, smtp, monkeypatch, capsys, fel):
+    import smtplib
+
+    smtp.send_fel = smtplib.SMTPRecipientsRefused({"x@example.com": (550, b"nej")}) if fel == "smtp" else OSError("nere")
+    assert kor_main(monkeypatch) == 4
+    assert "MEJLET SKICKADES INTE: sändningen misslyckades" in capsys.readouterr().err
+    assert klar_korning.exists()
+
+
+def test_ingen_mejl_ger_exit_0_utan_losenord(mejl_cfg, klar_korning, smtp, monkeypatch):
+    monkeypatch.delenv("SMTP_PASSWORD")
+    assert kor_main(monkeypatch, "--ingen-mejl") == 0
+    assert klar_korning.exists()

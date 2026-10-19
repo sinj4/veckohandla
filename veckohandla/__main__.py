@@ -3,7 +3,7 @@
   python -m veckohandla hitta-willys ORT    # hitta store_id för din Willys
   python -m veckohandla erbjudanden        # visa veckans kampanjer (ingen Claude, ingen inloggning)
   python -m veckohandla login              # logga in på Willys en gång (sparas i browser-profiles/)
-  python -m veckohandla kor [--fyll-varukorg] [--ingen-mejl]
+  python -m veckohandla kor [--fyll-varukorg] [--ingen-mejl]   # exit 3: kampanjer inte uppe, 4: mejlet skickades inte
   python -m veckohandla fyll-varukorg [VECKA]   # lägg senaste (eller angiven) veckas lista i Willys-korgen
 """
 
@@ -19,6 +19,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
+MEJL_MISSLYCKADES = 4  # rapporten är sparad men mejlet kom inte fram
 
 
 def config_path() -> Path:
@@ -168,17 +169,37 @@ def kor(cfg: dict, args) -> int:
     print(f"Willys-korgen: {res.willys_total:.2f} kr"
           + (f", med flaggade butiksalternativ: {res.med_butiksalternativ:.2f} kr" if res.butik_besparing else ""))
 
-    if not args.ingen_mejl:
-        pw = os.environ.get("SMTP_PASSWORD")
-        if not pw:
-            print("SMTP_PASSWORD saknas – hoppar över mejl (lägg den i .env)", file=sys.stderr)
-        else:
-            report.send(cfg, f"Veckomeny {res.week}", page, pw)
-            print(f"Mejl skickat till {cfg['epost']['till']}")
+    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, res.week, page, out)
     if res.cart_error:
         print(res.cart_error, file=sys.stderr)
+    if mejlfel:
+        print(mejlfel, file=sys.stderr, flush=True)
+        return MEJL_MISSLYCKADES
+    if res.cart_error:
         return 2  # syns i loggen att korgen inte fylldes
     return 0
+
+
+def _skicka_rapport(cfg: dict, week: str, page: str, out: Path) -> str | None:
+    """Mejla rapporten. Returnerar ett felmeddelande om mejlet inte kunde skickas, annars None."""
+    import smtplib
+
+    from . import report
+
+    pw = os.environ.get("SMTP_PASSWORD")
+    if not pw:
+        orsak = "SMTP_PASSWORD saknas (lägg den i .env eller som hemlighet i workflowen)"
+    else:
+        try:
+            report.send(cfg, f"Veckomeny {week}", page, pw)
+        except smtplib.SMTPAuthenticationError as e:
+            orsak = f"SMTP-inloggningen nekades ({e.smtp_code})"
+        except (smtplib.SMTPException, OSError) as e:
+            orsak = f"sändningen misslyckades ({type(e).__name__}: {e})"
+        else:
+            print(f"Mejl skickat till {cfg['epost']['till']}")
+            return None
+    return f"MEJLET SKICKADES INTE: {orsak}. Rapporten är sparad i {out}."
 
 
 if __name__ == "__main__":
