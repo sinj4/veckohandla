@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 import smtplib
 from email.message import EmailMessage
@@ -45,11 +46,24 @@ def byte_text(l) -> str:
     return text
 
 
+def fyll_kommando(week: str) -> str:
+    """Kommandot som fyller korgen; VECKOHANDLA_FYLL_KOMMANDO (t.ex. ./fyll.sh i molnet) går före standard."""
+    return os.environ.get("VECKOHANDLA_FYLL_KOMMANDO") or f"python -m veckohandla fyll-varukorg {week}"
+
+
 def render(res: Result) -> str:
     e = html.escape
     parts = [
         "<html><body style='font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:720px;margin:auto;color:#222'>",
         f"<h1>Veckohandla {e(res.week)}</h1>",
+    ]
+    if res.cart is None and not res.cart_error:
+        parts.append(
+            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:12px;border-radius:8px'>"
+            "🛒 <b>Varukorgen är inte fylld än.</b> Kör "
+            f"<code>{e(fyll_kommando(res.week))}</code> på datorn där du är inloggad på Willys.</p>"
+        )
+    parts += [
         f"<p>{e(res.plan.kommentar)}</p>",
         "<p style='color:#666;font-size:13px'>Kampanjer skannade: "
         + ", ".join(f"{e(k)} {v}" for k, v in res.offers_count.items())
