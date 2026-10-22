@@ -6,12 +6,13 @@ import datetime as dt
 import json
 import os
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
 from .models import Offer, Product
-from .planner import Inkopsrad, Planner, Val, Veckoplan, gar_alltid_at_rad
+from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, gar_alltid_at_rad
 from . import ingredienser, lager
 from .stores import ica, willys
 
@@ -21,6 +22,10 @@ DATA = Path(os.environ.get("VECKOHANDLA_DATA") or Path(__file__).resolve().paren
 # Veckoplaner heter t.ex. 2026-v42.json; korgfiler (2026-v42-korg.json) och cache ska inte matcha
 PLAN_GLOB = "*-v[0-9][0-9].json"
 KORG_GLOB = "*-v[0-9][0-9]-korg.json"
+# Valläget: veckans förslag (2026-v43-forslag.json) – får inte räknas som en veckoplan
+FORSLAG_GLOB = "*-v[0-9][0-9]-forslag.json"
+
+DAGAR = ["Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag", "Söndag"]
 
 
 @dataclass
@@ -355,10 +360,10 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
     return offers
 
 
-def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
-    # En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik.
-    # Butiken väljs först, innan något Claude-anrop görs.
-    varningar: list[str] = []
+@contextmanager
+def _willys_session(cfg: dict, log, varningar: list[str]):
+    """En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik.
+    Butiken väljs först, innan något Claude-anrop görs."""
     with willys.WillysSession(cfg["butiker"]["willys"]["store_id"]) as sess:
         log("Väljer Willys-butik…")
         try:
@@ -366,6 +371,12 @@ def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
         except Exception as e:
             varningar.append(f"Kunde inte välja butik, sökningen gäller hela Willys sortiment ({e})")
             log(f"  VARNING: {varningar[-1]}")
+        yield sess
+
+
+def run(cfg: dict, fill_cart: bool = False, log=print) -> Result:
+    varningar: list[str] = []
+    with _willys_session(cfg, log, varningar) as sess:
         return _run(cfg, sess, fill_cart, log, varningar)
 
 
@@ -398,18 +409,20 @@ def kontrollera_farska_kampanjer(cfg: dict, offers: list[Offer], idag: dt.date |
         raise KampanjerInteUppe("Veckans kampanjer är inte uppe än")
 
 
-def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
+def _planner(cfg: dict) -> Planner:
     c = cfg["claude"]
-    planner = Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
-    willys_name = cfg["butiker"]["willys"]["namn"]
+    return Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
 
+
+def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = True) -> tuple[list[Offer], dict[str, int]]:
+    """Hämta veckans kampanjer, kontrollera att de är uppe och filtrera bort spärrade och icke-mat."""
     log("Hämtar veckans kampanjer…")
-    varningar = varningar if varningar is not None else []
     fore_kampanjer = len(varningar)
     offers = fetch_all_offers(cfg, varningar)
     for v in varningar[fore_kampanjer:]:
         log(f"  VARNING: {v}")
-    kontrollera_farska_kampanjer(cfg, offers)
+    if kontrollera_farska:
+        kontrollera_farska_kampanjer(cfg, offers)
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     offers = [o for o in offers if not _blocked(f"{o.name} {o.brand}", sparrord)]
     uteslut = cfg.get("optimering", {}).get("uteslut_kategorier", UTESLUT_KATEGORIER)
@@ -420,12 +433,37 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     for o in offers:
         counts[o.store] = counts.get(o.store, 0) + 1
     log("  " + ", ".join(f"{k}: {v}" for k, v in counts.items()))
+    return offers, counts
+
+
+def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
+    planner = _planner(cfg)
+    varningar = varningar if varningar is not None else []
+    offers, counts = _kampanjer(cfg, log, varningar)
 
     log("Planerar veckomeny med Claude…")
     plan = planner.plan_week(offers, cfg, previous_dishes())
     for m in plan.middagar:
         log(f"  {m.dag}: {m.ratt}")
+    return _handla(cfg, sess, planner, plan, offers, counts, week_id(), fill_cart, log, varningar)
 
+
+def _handla(
+    cfg: dict,
+    sess: willys.WillysSession,
+    planner: Planner,
+    plan: Veckoplan,
+    offers: list[Offer],
+    counts: dict[str, int],
+    week: str,
+    fill_cart: bool,
+    log,
+    varningar: list[str],
+) -> Result:
+    """Från inköpslista till korg: sökning, produktval, reserver, tillgänglighet, ingredienser, storpack,
+    lager, butiksflaggor, korgfil och (ev.) varukorgen. Gemensamt för auto- och valläget."""
+    willys_name = cfg["butiker"]["willys"]["namn"]
+    sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     rows = list(plan.inkopslista) + [
         Inkopsrad(vara=a["namn"], behov=f"{a['antal']} st", sokord=a["namn"], till=["basvara"])
         for a in cfg.get("alltid_kop", [])
@@ -483,7 +521,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
                  butik=v if v and v.butik and v.butik_kostnad_kr is not None else None, alternativ=alt)
         )
 
-    result = Result(week=week_id(), plan=plan, lines=lines, offers_count=counts, varningar=varningar,
+    result = Result(week=week, plan=plan, lines=lines, offers_count=counts, varningar=varningar,
                     willys_namn=willys_name, willys_i_butik_namn=i_butik_namn)
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
@@ -637,3 +675,103 @@ def _cartline(x: dict):
 
     return CartLine(x["code"], x["qty"], x["pick_unit"], x.get("name", ""), x.get("size", ""),
                     reserver=[_cartline(r) for r in x.get("reserver", [])])
+
+
+# ---------- Valläget: förslag som jag väljer bland ----------
+
+@dataclass
+class Forslagsresultat:
+    week: str
+    forslag: Veckoforslag
+    middagar_per_vecka: int
+    offers_count: dict[str, int] = field(default_factory=dict)
+    varningar: list[str] = field(default_factory=list)
+
+
+class IngaForslag(RuntimeError):
+    pass
+
+
+class OgiltigtVal(ValueError):
+    pass
+
+
+def forslag_fil(week: str) -> Path:
+    return DATA / f"{week}-forslag.json"
+
+
+def latest_forslag_week() -> str:
+    """Senaste veckan som har sparade förslag, t.ex. '2026-v43'."""
+    files = sorted(DATA.glob(FORSLAG_GLOB))
+    if not files:
+        raise IngaForslag(f"Hittade inga sparade förslag i {DATA} – kör först: python -m veckohandla kor (med meny.lage: val)")
+    return files[-1].stem.removesuffix("-forslag")
+
+
+def las_forslag(week: str) -> Veckoforslag:
+    f = forslag_fil(week)
+    if not f.exists():
+        raise IngaForslag(f"Hittade inga förslag för {week} ({f})")
+    return Veckoforslag.model_validate_json(f.read_text())
+
+
+def foresla(cfg: dict, log=print) -> Forslagsresultat:
+    """Hämta kampanjerna och låt Claude föreslå meny.forslag numrerade rätter. Sparas i <vecka>-forslag.json."""
+    varningar: list[str] = []
+    offers, counts = _kampanjer(cfg, log, varningar)
+    antal = (cfg.get("meny") or {}).get("forslag", 10)
+    log(f"Tar fram {antal} förslag med Claude…")
+    forslag = _planner(cfg).propose_dishes(offers, cfg, previous_dishes(), antal)
+    if len(forslag.ratter) != antal:
+        log(f"  OBS: Claude gav {len(forslag.ratter)} förslag i stället för {antal}")
+    for i, r in enumerate(forslag.ratter, 1):
+        log(f"  {i:>2}. {r.ratt}")
+    res = Forslagsresultat(week=week_id(), forslag=forslag, middagar_per_vecka=cfg["hushall"]["middagar_per_vecka"],
+                           offers_count=counts, varningar=varningar)
+    DATA.mkdir(exist_ok=True)
+    forslag_fil(res.week).write_text(forslag.model_dump_json(indent=2))
+    return res
+
+
+def valda_middagar(forslag: Veckoforslag, nummer: list[str | int]) -> list[Middag]:
+    """De valda rätterna som middagar med veckodagar från måndag, i den ordning numren angavs."""
+    n = len(forslag.ratter)
+    if not nummer:
+        raise OgiltigtVal("Ange minst ett nummer")
+    valda: list[int] = []
+    for x in nummer:
+        try:
+            i = int(x)
+        except (TypeError, ValueError):
+            raise OgiltigtVal(f"{x!r} är inget nummer – ange nummer mellan 1 och {n}") from None
+        if not 1 <= i <= n:
+            raise OgiltigtVal(f"Nummer {i} finns inte – förslagen är numrerade 1–{n}")
+        if i in valda:
+            raise OgiltigtVal(f"Nummer {i} är valt två gånger")
+        valda.append(i)
+    if len(valda) > len(DAGAR):
+        raise OgiltigtVal(f"Högst {len(DAGAR)} rätter (en per veckodag), du valde {len(valda)}")
+    return [Middag(dag=dag, **forslag.ratter[i - 1].model_dump()) for dag, i in zip(DAGAR, valda)]
+
+
+def valj(cfg: dict, nummer: list[str | int], week: str | None = None, fill_cart: bool = False, log=print) -> Result:
+    """Valläget: gör inköpslistan för de valda förslagen och kör resten av flödet som i auto-läget.
+
+    Numren kontrolleras innan något anrop görs. <vecka>.json får bara de valda rätterna, så att
+    previous_dishes och lagret fungerar som förut.
+    """
+    week = week or latest_forslag_week()
+    middagar = valda_middagar(las_forslag(week), nummer)
+    varningar: list[str] = []
+    if week != week_id():
+        varningar.append(f"Förslagen gäller {week}, men kampanjer och priser hämtades {week_id()}")
+    with _willys_session(cfg, log, varningar) as sess:
+        planner = _planner(cfg)
+        # Kampanjerna var uppe när förslagen gjordes – ingen ny kontroll
+        offers, counts = _kampanjer(cfg, log, varningar, kontrollera_farska=False)
+        log("Gör inköpslistan för de valda rätterna med Claude…")
+        lista = planner.shopping_list(middagar, cfg)
+        plan = Veckoplan(middagar=middagar, inkopslista=lista.inkopslista, kommentar=lista.kommentar)
+        for m in plan.middagar:
+            log(f"  {m.dag}: {m.ratt}")
+        return _handla(cfg, sess, planner, plan, offers, counts, week, fill_cart, log, varningar)

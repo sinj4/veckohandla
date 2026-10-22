@@ -83,6 +83,10 @@ epost:
   smtp_port: 587
   # Lösenord läses från miljövariabeln SMTP_PASSWORD (Gmail: app-lösenord)
 
+meny:
+  lage: auto        # auto = färdig meny varje vecka, val = förslag som du väljer bland
+  forslag: 10       # antal förslag i valläget
+
 claude:
   model: claude-opus-5-5             # standard för båda stegen
   model_meny: claude-opus-5-5        # menyplanering (kräver mest omdöme)

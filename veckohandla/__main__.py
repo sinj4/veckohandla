@@ -5,6 +5,10 @@
   python -m veckohandla login              # logga in på Willys en gång (sparas i browser-profiles/)
   python -m veckohandla kor [--fyll-varukorg] [--ingen-mejl]   # exit 3: kampanjer inte uppe, 4: mejlet skickades inte
   python -m veckohandla fyll-varukorg [VECKA]   # lägg senaste (eller angiven) veckas lista i Willys-korgen
+
+Valläget (meny.lage: val i config): kor tar fram förslag i stället för en färdig meny.
+  python -m veckohandla forslag [VECKA]        # visa förslagen med nummer
+  python -m veckohandla valj 2 4 5 8 9 [--vecka 2026-v43] [--fyll-varukorg] [--ingen-mejl]
 """
 
 from __future__ import annotations
@@ -59,6 +63,13 @@ def main() -> int:
     k.add_argument("--en-gang-per-vecka", action="store_true",
                    help="avsluta direkt om veckans plan redan finns (för schemalagda körningar)")
     k.add_argument("--onskemal", default="", help='önskemål bara för den här körningen, t.ex. "fisk två gånger"')
+    fo = sub.add_parser("forslag", help="visa veckans förslag med nummer (valläget)")
+    fo.add_argument("vecka", nargs="?", help="t.ex. 2026-v43 (standard: senaste)")
+    v = sub.add_parser("valj", help="välj bland förslagen och gör veckans inköp (valläget)")
+    v.add_argument("nummer", nargs="+", help="förslagens nummer i den ordning de ska ätas (första = måndag)")
+    v.add_argument("--vecka", help="t.ex. 2026-v43 (standard: senaste förslagen)")
+    v.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i Willys-varukorgen (ingen beställning)")
+    v.add_argument("--ingen-mejl", action="store_true")
     args = ap.parse_args()
 
     if args.cmd == "hitta-willys":
@@ -80,6 +91,9 @@ def main() -> int:
         for v in varningar:
             print(f"VARNING: {v}", file=sys.stderr)
         return 0
+
+    if args.cmd == "forslag":
+        return visa_forslag(cfg, args.vecka)
 
     if args.cmd == "login":
         from .browser import login_willys
@@ -116,10 +130,15 @@ def main() -> int:
             print(f"För få i korgen efteråt: {', '.join(res['missing'])}")
         return 0
 
-    from .pipeline import KampanjerInteUppe
+    from .pipeline import IngaForslag, KampanjerInteUppe, OgiltigtVal
 
     try:
+        if args.cmd == "valj":
+            return valj(cfg, args)
         return kor(cfg, args)
+    except (OgiltigtVal, IngaForslag) as e:
+        print(f"Fel: {e}", file=sys.stderr)  # inget anrop har gjorts – rätta kommandot och kör igen
+        return 1
     except KampanjerInteUppe as e:
         print(e, flush=True)  # inte ett fel – schemat försöker igen senare
         return 3
@@ -149,18 +168,72 @@ def _felmejl(cfg: dict, tb: str) -> None:
         print(f"(Kunde inte heller skicka felmejl: {e})", file=sys.stderr)
 
 
+def menylage(cfg: dict) -> str:
+    lage = (cfg.get("meny") or {}).get("lage", "auto")
+    if lage not in ("auto", "val"):
+        raise ValueError(f"meny.lage måste vara auto eller val, inte {lage!r}")
+    return lage
+
+
 def kor(cfg: dict, args) -> int:
-    from . import pipeline, report
+    from . import pipeline
     from .pipeline import run, week_id
 
-    if args.en_gang_per_vecka and (pipeline.DATA / f"{week_id()}.json").exists():
-        print(f"Veckans plan finns redan ({week_id()}) – inget att göra.")
-        return 0
+    val = menylage(cfg) == "val"
+    if args.en_gang_per_vecka:
+        fil = pipeline.forslag_fil(week_id()) if val else pipeline.DATA / f"{week_id()}.json"
+        if fil.exists():
+            print(f"Veckans {'förslag' if val else 'plan'} finns redan ({week_id()}) – inget att göra.")
+            return 0
     if args.onskemal.strip():
         h = cfg["hushall"]
         h["preferenser"] = f"{h.get('preferenser', '').strip()}\nÖnskemål för just den här veckan: {args.onskemal.strip()}"
 
-    res = run(cfg, fill_cart=args.fyll_varukorg)
+    if val:
+        return _forslagsrapport(cfg, pipeline.foresla(cfg), args)
+    return _veckorapport(cfg, run(cfg, fill_cart=args.fyll_varukorg), args)
+
+
+def valj(cfg: dict, args) -> int:
+    from .pipeline import valj as valj_ratter
+
+    return _veckorapport(cfg, valj_ratter(cfg, args.nummer, args.vecka, fill_cart=args.fyll_varukorg), args)
+
+
+def visa_forslag(cfg: dict, vecka: str | None) -> int:
+    from . import report
+    from .pipeline import IngaForslag, Forslagsresultat, las_forslag, latest_forslag_week
+
+    try:
+        week = vecka or latest_forslag_week()
+        forslag = las_forslag(week)
+    except IngaForslag as e:
+        print(f"Fel: {e}", file=sys.stderr)
+        return 1
+    res = Forslagsresultat(week=week, forslag=forslag, middagar_per_vecka=cfg["hushall"]["middagar_per_vecka"])
+    print(f"Förslag {week}:")
+    for i, r in enumerate(forslag.ratter, 1):
+        print(f"  {i:>2}. {r.ratt} ({r.tid_min} min)")
+    print(f"\nVälj {res.middagar_per_vecka} i den ordning du vill äta dem (första = måndag), t.ex.:\n  {report.valj_exempel(res)}")
+    return 0
+
+
+def _forslagsrapport(cfg: dict, res, args) -> int:
+    from . import pipeline, report
+
+    page = report.render_forslag(res)
+    out = pipeline.DATA / f"{res.week}-forslag.html"
+    out.write_text(page)
+    print(f"Förslagsrapport: {out}")
+    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckoförslag {res.week}", page, out)
+    if mejlfel:
+        print(mejlfel, file=sys.stderr, flush=True)
+        return MEJL_MISSLYCKADES
+    return 0
+
+
+def _veckorapport(cfg: dict, res, args) -> int:
+    from . import pipeline, report
 
     page = report.render(res)
     out = pipeline.DATA / f"{res.week}.html"
@@ -169,7 +242,7 @@ def kor(cfg: dict, args) -> int:
     print(f"Willys-korgen: {res.willys_total:.2f} kr"
           + (f", med flaggade butiksalternativ: {res.med_butiksalternativ:.2f} kr" if res.butik_besparing else ""))
 
-    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, res.week, page, out)
+    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckomeny {res.week}", page, out)
     if res.cart_error:
         print(res.cart_error, file=sys.stderr)
     if mejlfel:
@@ -180,7 +253,7 @@ def kor(cfg: dict, args) -> int:
     return 0
 
 
-def _skicka_rapport(cfg: dict, week: str, page: str, out: Path) -> str | None:
+def _skicka_rapport(cfg: dict, subject: str, page: str, out: Path) -> str | None:
     """Mejla rapporten. Returnerar ett felmeddelande om mejlet inte kunde skickas, annars None."""
     import smtplib
 
@@ -191,7 +264,7 @@ def _skicka_rapport(cfg: dict, week: str, page: str, out: Path) -> str | None:
         orsak = "SMTP_PASSWORD saknas (lägg den i .env eller som hemlighet i workflowen)"
     else:
         try:
-            report.send(cfg, f"Veckomeny {week}", page, pw)
+            report.send(cfg, subject, page, pw)
         except smtplib.SMTPAuthenticationError as e:
             orsak = f"SMTP-inloggningen nekades ({e.smtp_code})"
         except (smtplib.SMTPException, OSError) as e:

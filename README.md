@@ -40,6 +40,16 @@ cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 
 Du kan också planera och fylla korgen i ett steg med `kor --fyll-varukorg`.
 
+Rapporten säger överst om korgen inte är fylld än och vilket kommando som fyller den. Kommandot tas från **`VECKOHANDLA_FYLL_KOMMANDO`**, med `python -m veckohandla fyll-varukorg <vecka>` som standard.
+
+### Valläget: välj själv bland förslag
+Med `meny: {lage: val, forslag: 10}` i `config.yaml` gör `kor` ingen färdig meny. I stället föreslår Claude (`model_meny`) tio numrerade rätter utifrån veckans kampanjer. Förslagen följer önskemålen och `undvik` och upprepar inga rätter från de senaste veckornas valda menyer. De sparas i `data/<vecka>-forslag.json` och mejlas som numrerade kort, med kommandot för att välja överst.
+```sh
+.venv/bin/python -m veckohandla forslag                     # visa förslagen med nummer
+.venv/bin/python -m veckohandla valj 2 4 5 8 9 --fyll-varukorg
+```
+`valj` ger de valda rätterna veckodagar från måndag i den ordning du skrev numren. Claude (`model_produkter`) gör inköpslistan för just de rätterna, och sedan går resten precis som i auto-läget: kampanjerna hämtas på nytt, och produkter väljs i din Willys-butik med reserver, tillgänglighets- och ingredienskontroll, storpack, lager och butiksflaggor. Till sist sparas korgfilen och rapporten mejlas. `data/<vecka>.json` får bara de valda rätterna. `--vecka 2026-v43` väljer bland en viss veckas förslag; standard är de senaste. Ogiltiga nummer ger ett fel innan något anrop görs. `--en-gang-per-vecka` tittar i valläget på förslagsfilen.
+
 Flaggor och miljövariabler för schemalagda körningar:
 - **`kor --en-gang-per-vecka`** avslutar direkt om veckans plan (`data/<vecka>.json`) redan finns. Ett schema kan då köra flera gånger, och den första lyckade körningen gäller.
 - **`kor --onskemal "fisk två gånger, ingen kyckling"`** lägger till önskemål bara för den här körningen.
@@ -77,6 +87,7 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`min_besparing_for_delning_kr`** (under `optimering`): minsta samlade besparing per ICA-butik för att flagga dess kampanjer. Under trösklarna flaggas inget, men varorna ligger alltid i korgen.
 - **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
+- **`meny.lage`** (standard `auto`): `auto` gör en färdig meny varje vecka, `val` gör förslag som du väljer bland (se Valläget). **`meny.forslag`** (standard 10) anger antalet förslag.
 
 ## Hur det fungerar
 

@@ -32,6 +32,17 @@ class Middag(BaseModel):
     instruktioner: list[str]
 
 
+class Ratt(BaseModel):
+    """En föreslagen rätt i valläget – som Middag men utan dag."""
+
+    ratt: str
+    beskrivning: str
+    tid_min: int
+    kampanjvaror: list[str] = Field(description="Vilka veckokampanjer rätten bygger på, med butik")
+    ingredienser: list[Ingrediens]
+    instruktioner: list[str]
+
+
 class Inkopsrad(BaseModel):
     vara: str = Field(description="Vad som behövs, generiskt, t.ex. 'kycklingfilé'")
     behov: str = Field(description="Total mängd för veckan, t.ex. '1,2 kg'")
@@ -48,6 +59,16 @@ class Veckoplan(BaseModel):
     middagar: list[Middag]
     inkopslista: list[Inkopsrad]
     kommentar: str = Field(description="Kort om hur menyn utnyttjar veckans kampanjer")
+
+
+class Veckoforslag(BaseModel):
+    ratter: list[Ratt] = Field(description="Rätterna i den ordning de ska numreras (1, 2, 3 …)")
+    kommentar: str = Field(description="Kort om hur förslagen utnyttjar veckans kampanjer")
+
+
+class Inkopslista(BaseModel):
+    inkopslista: list[Inkopsrad]
+    kommentar: str = Field(description="Kort om hur de valda rätterna utnyttjar veckans kampanjer")
 
 
 # ---------- Steg 2: produktval ----------
@@ -103,6 +124,45 @@ def _dagar(n: int) -> str:
     if n == 7:
         return "Dagar: måndag–söndag."
     return f"Välj själv vilka {n} veckodagar middagarna gäller."
+
+
+KAMPANJTYPER = """Det finns tre sorters kampanjer:
+- Willys e-handel: läggs direkt i varukorgen. Huvudkällan – allt som går ska finnas här.
+- Willys i butik: gäller bara i Willys-butiken. E-handelns motsvarighet läggs ändå i korgen; den
+  billigare butikskampanjen visas som tips (t.ex. vid hämtning av ordern).
+- ICA-butiker: kräver en egen resa och visas också bara som tips när de är klart billigare."""
+
+INKOPSREGEL = """Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
+basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står i skafferilistan."""
+
+
+def _meny_system(cfg: dict) -> str:
+    barn = cfg["hushall"].get("barn") or []
+    return (
+        f"Du är en svensk matplanerare som gör billiga, goda{' och barnvänliga' if barn else ''} veckomenyer "
+        "genom att utgå från butikernas veckokampanjer. Svara på svenska."
+    )
+
+
+def _personer(h: dict) -> str:
+    personer = f"{h['vuxna']} vuxna"
+    if barn := h.get("barn") or []:
+        personer += f" och barn ({', '.join(f'{a} år' for a in barn)})"
+    return personer
+
+
+def _hushallsrader(cfg: dict, previous_dishes: list[str]) -> str:
+    h = cfg["hushall"]
+    return f"""Önskemål: {h['preferenser'].strip()}
+UNDVIK ALLTID (hårt krav, inga undantag): {'; '.join(h['undvik']) or 'inget särskilt'}
+Finns alltid hemma (ska inte stå på inköpslistan): {', '.join(cfg['skafferi'])}
+Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or 'inga'}"""
+
+
+def _kampanjgrund(h: dict) -> str:
+    barnregel = " och använd bara varor som barnen rimligen äter" if h.get("barn") else ""
+    return f"""Bygg huvudsakligen på kampanjvarorna nedan, särskilt protein och grönsaker. Läs varunamnen exakt
+(t.ex. är kycklinglever inte kycklingfilé){barnregel}."""
 
 
 def gar_alltid_at_rad(row: Inkopsrad, ord: list[str]) -> bool:
@@ -180,39 +240,60 @@ class Planner:
 
     def plan_week(self, offers: list[Offer], cfg: dict, previous_dishes: list[str]) -> Veckoplan:
         h = cfg["hushall"]
-        barn = h.get("barn") or []
-        system = (
-            f"Du är en svensk matplanerare som gör billiga, goda{' och barnvänliga' if barn else ''} veckomenyer "
-            "genom att utgå från butikernas veckokampanjer. Svara på svenska."
-        )
-        personer = f"{h['vuxna']} vuxna"
-        if barn:
-            personer += f" och barn ({', '.join(f'{a} år' for a in barn)})"
-        barnregel = " och använd bara varor som barnen rimligen äter" if barn else ""
-        prompt = f"""Planera {h['middagar_per_vecka']} middagar för {personer}, {h['portioner_per_middag']} portioner per middag.
+        prompt = f"""Planera {h['middagar_per_vecka']} middagar för {_personer(h)}, {h['portioner_per_middag']} portioner per middag.
 {_dagar(h['middagar_per_vecka'])}
 
-Önskemål: {h['preferenser'].strip()}
-UNDVIK ALLTID (hårt krav, inga undantag): {'; '.join(h['undvik']) or 'inget särskilt'}
-Finns alltid hemma (ska inte stå på inköpslistan): {', '.join(cfg['skafferi'])}
-Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or 'inga'}
+{_hushallsrader(cfg, previous_dishes)}
 
-Bygg huvudsakligen på kampanjvarorna nedan, särskilt protein och grönsaker. Läs varunamnen exakt
-(t.ex. är kycklinglever inte kycklingfilé){barnregel}.
-Det finns tre sorters kampanjer:
-- Willys e-handel: läggs direkt i varukorgen. Huvudkällan – allt som går ska finnas här.
-- Willys i butik: gäller bara i Willys-butiken. E-handelns motsvarighet läggs ändå i korgen; den
-  billigare butikskampanjen visas som tips (t.ex. vid hämtning av ordern).
-- ICA-butiker: kräver en egen resa och visas också bara som tips när de är klart billigare. Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
+{_kampanjgrund(h)}
+{KAMPANJTYPER} Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
 
-Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
-basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står i skafferilistan.
+{INKOPSREGEL}
 
 # Veckans kampanjer
 {_offers_block(offers)}
 """
-        return self._parse(prompt, Veckoplan, system, effort="high", model=self.model_meny)
+        return self._parse(prompt, Veckoplan, _meny_system(cfg), effort="high", model=self.model_meny)
+
+    def propose_dishes(self, offers: list[Offer], cfg: dict, previous_dishes: list[str], antal: int) -> Veckoforslag:
+        """Valläget: `antal` fristående rätter att välja bland, utan dagar och utan inköpslista."""
+        h = cfg["hushall"]
+        prompt = f"""Föreslå {antal} middagsrätter för {_personer(h)}, {h['portioner_per_middag']} portioner per rätt.
+Vi väljer sedan själva {h['middagar_per_vecka']} av dem till veckan, så varje rätt ska stå för sig själv och
+inte ha någon veckodag.
+Variera rätterna enligt önskemålen, så att det finns flera att välja på av varje sort som önskemålen
+nämner (t.ex. minst två med fisk och minst två vegetariska när önskemålen tar upp fisk och vegetariskt).
+Ange ingredienserna med mängd för {h['portioner_per_middag']} portioner.
+
+{_hushallsrader(cfg, previous_dishes)}
+
+{_kampanjgrund(h)}
+{KAMPANJTYPER}
+
+# Veckans kampanjer
+{_offers_block(offers)}
+"""
+        return self._parse(prompt, Veckoforslag, _meny_system(cfg), effort="high", model=self.model_meny)
+
+    def shopping_list(self, middagar: list[Middag], cfg: dict) -> Inkopslista:
+        """Valläget: inköpslistan för de valda rätterna."""
+        system = "Du gör inköpslistor till svenska veckomenyer. Svara på svenska."
+        ratter = "\n\n".join(
+            f"## {m.dag}: {m.ratt}\nKampanjvaror: {', '.join(m.kampanjvaror) or '–'}\n"
+            + "\n".join(f"- {i.mangd} {i.namn}" for i in m.ingredienser)
+            for m in middagar
+        )
+        prompt = f"""Gör inköpslistan till de här {len(middagar)} middagarna, {cfg['hushall']['portioner_per_middag']} portioner per middag.
+Finns alltid hemma (ska inte stå på inköpslistan): {', '.join(cfg['skafferi'])}
+
+{INKOPSREGEL}
+Ange i `till` vilka middagar (dag) varan används till.
+
+# Middagar
+{ratter}
+"""
+        return self._parse(prompt, Inkopslista, system, effort="medium", model=self.model_produkter)
 
     def choose_products(
         self,

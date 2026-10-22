@@ -8,7 +8,7 @@ import re
 import smtplib
 from email.message import EmailMessage
 
-from .pipeline import Result
+from .pipeline import Forslagsresultat, Result
 
 
 def _kr(x: float | None) -> str:
@@ -49,6 +49,52 @@ def byte_text(l) -> str:
 def fyll_kommando(week: str) -> str:
     """Kommandot som fyller korgen; VECKOHANDLA_FYLL_KOMMANDO (t.ex. ./fyll.sh i molnet) går före standard."""
     return os.environ.get("VECKOHANDLA_FYLL_KOMMANDO") or f"python -m veckohandla fyll-varukorg {week}"
+
+
+def valj_kommando(week: str) -> str:
+    """Kommandot som väljer bland förslagen (numren skrivs efter)."""
+    return os.environ.get("VECKOHANDLA_FYLL_KOMMANDO") or f"python -m veckohandla valj --vecka {week} --fyll-varukorg"
+
+
+def valj_exempel(res: Forslagsresultat) -> str:
+    """T.ex. './fyll.sh 1 3 5 7 9' – lika många nummer som middagar per vecka, utspridda över förslagen."""
+    n = len(res.forslag.ratter)
+    antal = min(res.middagar_per_vecka, n)
+    steg = max(1, n // antal) if antal else 1
+    return f"{valj_kommando(res.week)} {' '.join(str(1 + i * steg) for i in range(antal))}"
+
+
+def render_forslag(res: Forslagsresultat) -> str:
+    e = html.escape
+    parts = [
+        "<html><body style='font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:720px;margin:auto;color:#222'>",
+        f"<h1>Veckoförslag {e(res.week)}</h1>",
+        "<div style='background:#eaf2fb;border:1px solid #9cc0e6;padding:12px;border-radius:8px'>"
+        f"<b>Välj {res.middagar_per_vecka} rätter</b> genom att köra kommandot med deras nummer på datorn där du är "
+        f"inloggad på Willys, i den ordning du vill äta dem (första blir måndag):<br>"
+        f"<code style='font-size:15px'>{e(valj_exempel(res))}</code><br>"
+        "<small>Då görs inköpslistan för just de rätterna, korgen fylls och du får veckans rapport.</small></div>",
+        f"<p>{e(res.forslag.kommentar)}</p>",
+        "<p style='color:#666;font-size:13px'>Kampanjer skannade: "
+        + ", ".join(f"{e(k)} {v}" for k, v in res.offers_count.items())
+        + "</p>",
+    ]
+    for v in res.varningar:
+        parts.append(
+            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:10px;border-radius:8px;font-size:14px'>"
+            f"⚠️ {e(v)}</p>"
+        )
+    for i, r in enumerate(res.forslag.ratter, 1):
+        kampanj = (f"<p style='color:#2a7a2a;font-size:13px;margin:6px 0 0'>Kampanj: {e(', '.join(r.kampanjvaror))}</p>"
+                   if r.kampanjvaror else "")
+        parts.append(
+            "<div style='border:1px solid #ddd;border-radius:10px;padding:10px 14px;margin:10px 0'>"
+            f"<h3 style='margin:0'><span style='display:inline-block;min-width:2em;color:#2a6db0'>{i}.</span>"
+            f"{e(r.ratt)} <small style='color:#666;font-weight:normal'>({r.tid_min} min)</small></h3>"
+            f"<p style='margin:6px 0 0'>{e(r.beskrivning)}</p>{kampanj}</div>"
+        )
+    parts.append("</body></html>")
+    return "\n".join(parts)
 
 
 def render(res: Result) -> str:
