@@ -87,6 +87,7 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`min_besparing_for_delning_kr`** (under `optimering`): minsta samlade besparing per ICA-butik för att flagga dess kampanjer. Under trösklarna flaggas inget, men varorna ligger alltid i korgen.
 - **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
+- **`hushall.matlador`** (standard av), t.ex. `{dagar: [tisdag, torsdag], extra_portioner: 2}`: de dagarna lagas extra portioner till matlådor. I auto-läget räknar menyn och inköpslistan med dem. I valläget gäller det de valda rätter som hamnar på de dagarna: inköpslistan skalas upp, och receptet får en första rad om hur många portioner som ska lagas. Rapporten märker rätterna med "+2 matlådor".
 - **`meny.lage`** (standard `auto`): `auto` gör en färdig meny varje vecka, `val` gör förslag som du väljer bland (se Valläget). **`meny.forslag`** (standard 10) anger antalet förslag.
 
 ## Betyg

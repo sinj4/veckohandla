@@ -6,6 +6,10 @@ hushall:
   barn: [9, 7]          # åldrar
   middagar_per_vecka: 5
   portioner_per_middag: 4
+  # Matlådor (valfritt, standard av): de här dagarna lagas extra portioner och inköpslistan räknar med dem
+  # matlador:
+  #   dagar: [tisdag, torsdag]
+  #   extra_portioner: 2
   # Fritext som skickas till menyplaneraren
   preferenser: >
     Barnvänlig vardagsmat, max ca 40 min tillagning på vardagar.

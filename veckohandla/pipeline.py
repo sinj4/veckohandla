@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Callable
 
 from .models import Offer, Product
-from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad
+from .planner import (Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad,
+                      matlador, matlador_for)
 from . import betyg, ingredienser, lager, priser
 from .stores import ica, willys
 
@@ -92,6 +93,7 @@ class Result:
     offers_count: dict[str, int] = field(default_factory=dict)
     kostnad: dict | None = None  # Claude-förbrukning per steg och totalt (se spara_forbrukning)
     prismarkerade: list[Offer] = field(default_factory=list)  # kampanjer med "bra pris"/"vanligt pris"
+    matlador: dict[str, int] = field(default_factory=dict)  # dag -> extra portioner till matlådor
 
 
 def week_id(today: dt.date | None = None) -> str:
@@ -446,6 +448,7 @@ def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = 
 
 
 def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
+    matlador(cfg["hushall"])  # fel i configen syns innan något anrop görs
     planner = _planner(cfg)
     varningar = varningar if varningar is not None else []
     offers, counts = _kampanjer(cfg, log, varningar)
@@ -532,7 +535,8 @@ def _handla(
 
     result = Result(week=week, plan=plan, lines=lines, offers_count=counts, varningar=varningar,
                     willys_namn=willys_name, willys_i_butik_namn=i_butik_namn,
-                    prismarkerade=[o for o in offers if o.prisnotis])
+                    prismarkerade=[o for o in offers if o.prisnotis],
+                    matlador={m.dag: e for m in plan.middagar if (e := matlador_for(m.dag, cfg["hushall"]))})
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
     with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
@@ -794,6 +798,12 @@ def valj(cfg: dict, nummer: list[str | int], week: str | None = None, fill_cart:
     """
     week = week or latest_forslag_week()
     middagar = valda_middagar(las_forslag(week), nummer)
+    h = cfg["hushall"]
+    matlador(h)
+    for m in middagar:  # förslagens ingredienser gäller portioner_per_middag
+        if extra := matlador_for(m.dag, h):
+            m.instruktioner.insert(0, f"Laga {h['portioner_per_middag'] + extra} portioner ({extra} extra till "
+                                      f"matlådor) – skala upp mängderna i receptet.")
     varningar: list[str] = []
     if week != week_id():
         varningar.append(f"Förslagen gäller {week}, men kampanjer och priser hämtades {week_id()}")

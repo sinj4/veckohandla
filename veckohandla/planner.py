@@ -202,6 +202,38 @@ INKOPSREGEL = """Inköpslistan ska summera hela veckans behov per vara, utan ska
 basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står i skafferilistan."""
 
 
+VECKODAGAR = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"]
+
+
+def matlador(h: dict) -> tuple[list[str], int]:
+    """hushall.matlador -> (dagar i gemener, extra portioner). Av (([], 0)) om nyckeln saknas."""
+    m = h.get("matlador") or {}
+    dagar = [str(d).strip().lower() for d in m.get("dagar") or []]
+    extra = int(m.get("extra_portioner") or 0)
+    if okanda := [d for d in dagar if d not in VECKODAGAR]:
+        raise ValueError(f"hushall.matlador.dagar: okänd dag {', '.join(okanda)} (använd t.ex. tisdag, torsdag)")
+    if extra < 0:
+        raise ValueError("hushall.matlador.extra_portioner kan inte vara negativt")
+    return (dagar, extra) if dagar and extra else ([], 0)
+
+
+def matlador_for(dag: str, h: dict) -> int:
+    """Extra portioner till matlådor för en middag, utifrån dagen ('Tisdag', 'tisdag 28/10' …)."""
+    dagar, extra = matlador(h)
+    forsta = (dag.split() or [""])[0].strip(",:").lower()
+    return extra if forsta in dagar else 0
+
+
+def _matladerad(h: dict) -> str:
+    dagar, extra = matlador(h)
+    if not dagar:
+        return ""
+    namn = dagar[0] if len(dagar) == 1 else f"{', '.join(dagar[:-1])} och {dagar[-1]}"
+    p = h["portioner_per_middag"]
+    return (f"\nMatlådor: på {namn} lagas {p + extra} portioner i stället för {p} ({extra} extra till matlådor). "
+            "Ingredienserna för de dagarna och inköpslistan ska räcka till det.")
+
+
 def _meny_system(cfg: dict) -> str:
     barn = cfg["hushall"].get("barn") or []
     return (
@@ -338,7 +370,7 @@ class Planner:
     ) -> Veckoplan:
         h = cfg["hushall"]
         prompt = f"""Planera {h['middagar_per_vecka']} middagar för {_personer(h)}, {h['portioner_per_middag']} portioner per middag.
-{_dagar(h['middagar_per_vecka'])}
+{_dagar(h['middagar_per_vecka'])}{_matladerad(h)}
 
 {_hushallsrader(cfg, previous_dishes, smak)}
 
@@ -378,8 +410,18 @@ Ange ingredienserna med mängd för {h['portioner_per_middag']} portioner.
     def shopping_list(self, middagar: list[Middag], cfg: dict) -> Inkopslista:
         """Valläget: inköpslistan för de valda rätterna."""
         system = "Du gör inköpslistor till svenska veckomenyer. Svara på svenska."
+        h = cfg["hushall"]
+
+        def matlada(m: Middag) -> str:
+            extra = matlador_for(m.dag, h)
+            if not extra:
+                return ""
+            p = h["portioner_per_middag"]
+            return (f"\nMatlådor: laga {p + extra} portioner ({extra} extra). Ingredienserna nedan gäller {p} "
+                    "portioner – skala upp dem i inköpslistan.")
+
         ratter = "\n\n".join(
-            f"## {m.dag}: {m.ratt}\nKampanjvaror: {', '.join(m.kampanjvaror) or '–'}\n"
+            f"## {m.dag}: {m.ratt}{matlada(m)}\nKampanjvaror: {', '.join(m.kampanjvaror) or '–'}\n"
             + "\n".join(f"- {i.mangd} {i.namn}" for i in m.ingredienser)
             for m in middagar
         )

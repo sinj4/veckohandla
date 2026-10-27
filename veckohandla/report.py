@@ -185,7 +185,9 @@ def render(res: Result) -> str:
 
     parts.append("<h2>Meny</h2>")
     for m in res.plan.middagar:
-        parts.append(f"<h3>{e(m.dag)}: {e(m.ratt)} <small style='color:#666'>({m.tid_min} min)</small></h3>")
+        matlada = (f" <small style='background:#f3ecfb;color:#5b3a8c;padding:1px 6px;border-radius:4px'>"
+                   f"+{res.matlador[m.dag]} matlådor</small>" if res.matlador.get(m.dag) else "")
+        parts.append(f"<h3>{e(m.dag)}: {e(m.ratt)} <small style='color:#666'>({m.tid_min} min)</small>{matlada}</h3>")
         parts.append(f"<p>{e(m.beskrivning)}</p>")
         if m.kampanjvaror:
             parts.append(f"<p style='color:#2a7a2a;font-size:13px'>Kampanj: {e(', '.join(m.kampanjvaror))}</p>")
