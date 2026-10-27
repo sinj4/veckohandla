@@ -1,5 +1,6 @@
 # Veckohandla – inställningar
-# Kopiera till config.yaml och anpassa: cp config.example.yaml config.yaml
+# Skapa config.yaml med guiden: python -m veckohandla init
+# (eller kopiera för hand: cp config.example.yaml config.yaml)
 
 hushall:
   vuxna: 2

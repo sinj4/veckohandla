@@ -1,5 +1,6 @@
 """Kommandon:
 
+  python -m veckohandla init [--ingen-fraga …]          # installationsguide: skriver config.yaml
   python -m veckohandla kontroll [--utan-inloggning]   # kontrollera installationen (inga Claude-anrop)
   python -m veckohandla hitta-willys ORT    # hitta store_id för din Willys
   python -m veckohandla hitta-hemkop ORT    # hitta store_id för ditt Hemköp
@@ -58,6 +59,31 @@ def main() -> int:
     for kedja in ("willys", "hemkop"):
         h = sub.add_parser(f"hitta-{kedja}")
         h.add_argument("ort")
+    i = sub.add_parser("init", help="installationsguide som skriver config.yaml")
+    i.add_argument("--config", type=Path, help="var config.yaml skrivs (standard: VECKOHANDLA_CONFIG eller här)")
+    i.add_argument("--ingen-fraga", action="store_true", help="inga frågor – svaren tas från flaggorna nedan")
+    i.add_argument("--ort", help="ort att söka Willys- och Hemköp-butiker med e-handel i")
+    i.add_argument("--kedja", choices=["willys", "hemkop"], help="e-handelskedja (med --butik-id)")
+    i.add_argument("--butik-id", help="butikens store_id (annars första butiken med e-handel på --ort)")
+    i.add_argument("--butiksnamn", help="namn på butiken (med --butik-id)")
+    i.add_argument("--ica", action="append", default=[], metavar="NAMN=SLUG_ELLER_ADRESS",
+                   help="ICA-butik att jämföra med (kan anges flera gånger)")
+    i.add_argument("--ica-i-molnet", action="store_true", help="hämta ICA även i GitHub Actions (standard: bara lokalt)")
+    i.add_argument("--vuxna", type=int, default=2)
+    i.add_argument("--barn", default="", help='barnens åldrar, t.ex. "9,7"')
+    i.add_argument("--middagar", type=int, default=5)
+    i.add_argument("--onskemal", default="", help="önskemål i fritext (standard: exemplets)")
+    i.add_argument("--matlador", default="", help='dagar med matlådor, t.ex. "tisdag,torsdag"')
+    i.add_argument("--matlador-extra", type=int, default=2)
+    i.add_argument("--undvik", default="", help="förval: flaskfritt,vegetariskt,notfritt,laktosfritt")
+    i.add_argument("--undvik-egen", default="", help='annat att undvika, separerat med semikolon')
+    i.add_argument("--lage", choices=["auto", "val"], default="auto")
+    i.add_argument("--epost", default="du@example.com")
+    i.add_argument("--smtp-host", default="smtp.gmail.com")
+    i.add_argument("--modeller", choices=["billiga", "standard"], default="billiga",
+                   help="billiga = Sonnet för menyn, Haiku för produktvalet")
+    i.add_argument("--skriv-over", action="store_true", help="skriv över config.yaml (kopia sparas som .bak)")
+    i.add_argument("--utan-kontroll", action="store_true", help="kör inte kontroll efteråt")
     ko = sub.add_parser("kontroll", help="kontrollera installationen (inga Claude-anrop, inga ändringar)")
     ko.add_argument("--utan-inloggning", action="store_true",
                     help="öppna inte webbläsarprofilen för att kontrollera inloggningen")
@@ -90,6 +116,9 @@ def main() -> int:
             town = (s.get("address") or {}).get("town") or "?"
             print(f"{s.get('storeId', '?'):>6}  {s.get('name', '?')}  ({town})  e-handel/hämtning: {'ja' if s.get('clickAndCollect') else 'nej'}")
         return 0
+
+    if args.cmd == "init":
+        return init(args)
 
     if args.cmd == "kontroll":
         from . import kontroll, pipeline
@@ -190,6 +219,74 @@ def _felmejl(cfg: dict, tb: str) -> None:
         report.send(cfg, f"Veckohandla misslyckades {week_id()}", body, pw)
     except Exception as e:
         print(f"(Kunde inte heller skicka felmejl: {e})", file=sys.stderr)
+
+
+def init(args) -> int:
+    from . import installera, kontroll, pipeline
+
+    config = args.config or config_path()
+    f = installera.Fragor()
+    if args.ingen_fraga:
+        try:
+            svar = _init_svar(args)
+        except ValueError as e:
+            print(f"Fel: {e}", file=sys.stderr)
+            return 2
+        klar = installera.kor_guiden(f, config, ROOT / "config.example.yaml", ROOT / ".env", svar,
+                                     skriv_over=args.skriv_over)
+    else:
+        klar = installera.kor_guiden(f, config, ROOT / "config.example.yaml", ROOT / ".env")
+    if not klar:
+        return 1
+    load_env()  # ett nytt SMTP-lösenord i .env ska synas i kontrollen
+    if not args.utan_kontroll:
+        print()
+        kontroll.kor(config, pipeline.DATA, ROOT / "browser-profiles", med_inloggning=False)
+    login_klar = False
+    if not args.ingen_fraga and f.ja("\nLogga in hos e-handelskedjan nu (öppnar ett webbläsarfönster)?", True):
+        from .browser import login_axfood
+        from .pipeline import kedjemodul
+
+        k = kedjemodul(yaml.safe_load(config.read_text())).KEDJA
+        print(f"Inloggad på {k.namn} som {login_axfood(k.nyckel, k.namn, k.base)}.")
+        login_klar = True
+    installera.nasta_steg(print, login_klar)
+    return 0
+
+
+def _init_svar(args):
+    """Svaren för init --ingen-fraga, från flaggorna."""
+    from . import installera
+
+    if args.butik_id:
+        if not args.kedja:
+            raise ValueError("--butik-id kräver --kedja willys eller hemkop")
+        namn = args.butiksnamn or f"{'Willys' if args.kedja == 'willys' else 'Hemköp'} {args.butik_id}"
+        butik = installera.Butik(args.kedja, args.butik_id, namn)
+    elif args.ort:
+        butiker = [b for b in installera.hitta_butiker(args.ort) if not args.kedja or b.kedja == args.kedja]
+        if not butiker:
+            raise ValueError(f"hittade ingen butik med e-handel i {args.ort} – ange --kedja och --butik-id")
+        butik = butiker[0]
+    else:
+        raise ValueError("ange --ort eller --kedja och --butik-id")
+    ica = []
+    for post in args.ica:
+        namn, _, adress = post.partition("=")
+        if not adress:
+            raise ValueError(f"--ica ska vara NAMN=SLUG, inte {post!r}")
+        slug = installera.ica_slug(adress)
+        ica.append({"namn": namn.strip(), "erbjudande_slug": slug, **({} if args.ica_i_molnet else {"bara_lokalt": True})})
+    undvik = [u.strip() for u in args.undvik.split(",") if u.strip()]
+    if okanda := [u for u in undvik if u not in installera.UNDVIK_VAL]:
+        raise ValueError(f"okänt förval i --undvik: {', '.join(okanda)} (välj bland {', '.join(installera.UNDVIK_VAL)})")
+    return installera.Svar(
+        butik=butik, ica=ica, vuxna=args.vuxna, barn=installera.tolka_heltal(args.barn), middagar=args.middagar,
+        onskemal=args.onskemal, matlador_dagar=installera.tolka_dagar(args.matlador) if args.matlador else [],
+        matlador_extra=args.matlador_extra, undvik_val=undvik,
+        undvik_egen=[u for u in args.undvik_egen.split(";") if u.strip()], lage=args.lage, epost=args.epost,
+        smtp_host=args.smtp_host, billiga_modeller=args.modeller == "billiga",
+    )
 
 
 def menylage(cfg: dict) -> str:
