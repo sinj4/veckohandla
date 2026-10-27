@@ -13,7 +13,7 @@ from typing import Callable
 
 from .models import Offer, Product
 from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad
-from . import ingredienser, lager, priser
+from . import betyg, ingredienser, lager, priser
 from .stores import ica, willys
 
 # Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
@@ -451,7 +451,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
     offers, counts = _kampanjer(cfg, log, varningar)
 
     log("Planerar veckomeny med Claude…")
-    plan = planner.plan_week(offers, cfg, previous_dishes())
+    plan = planner.plan_week(offers, cfg, previous_dishes(), betyg.smak(DATA))
     for m in plan.middagar:
         log(f"  {m.dag}: {m.ratt}")
     return _handla(cfg, sess, planner, plan, offers, counts, week_id(), fill_cart, log, varningar)
@@ -752,7 +752,7 @@ def foresla(cfg: dict, log=print) -> Forslagsresultat:
     antal = (cfg.get("meny") or {}).get("forslag", 10)
     log(f"Tar fram {antal} förslag med Claude…")
     planner = _planner(cfg)
-    forslag = planner.propose_dishes(offers, cfg, previous_dishes(), antal)
+    forslag = planner.propose_dishes(offers, cfg, previous_dishes(), antal, betyg.smak(DATA))
     if len(forslag.ratter) != antal:
         log(f"  OBS: Claude gav {len(forslag.ratter)} förslag i stället för {antal}")
     for i, r in enumerate(forslag.ratter, 1):

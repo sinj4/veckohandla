@@ -42,7 +42,7 @@ class Planerare:
     def __init__(self, *a):
         pass
 
-    def plan_week(self, offers, cfg, prev):
+    def plan_week(self, offers, cfg, prev, smak=None):
         Planerare.menyns_kampanjer = list(offers)
         rader = [Inkopsrad(vara=v, behov="1 st", sokord=v, till=["Måndag"])
                  for v in ("köttbullar", "nötfärs", "tacochips", "kassler", "äpplen")]

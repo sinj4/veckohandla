@@ -9,6 +9,8 @@
 Valläget (meny.lage: val i config): kor tar fram förslag i stället för en färdig meny.
   python -m veckohandla forslag [VECKA]        # visa förslagen med nummer
   python -m veckohandla valj 2 4 5 8 9 [--vecka 2026-v43] [--fyll-varukorg] [--ingen-mejl]
+
+  python -m veckohandla betyg [--vecka 2026-v43]   # sätt + eller − på förra veckans rätter
 """
 
 from __future__ import annotations
@@ -70,6 +72,8 @@ def main() -> int:
     v.add_argument("--vecka", help="t.ex. 2026-v43 (standard: senaste förslagen)")
     v.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i Willys-varukorgen (ingen beställning)")
     v.add_argument("--ingen-mejl", action="store_true")
+    b = sub.add_parser("betyg", help="sätt + eller − på förra (eller angiven) veckans rätter")
+    b.add_argument("--vecka", help="t.ex. 2026-v43 (standard: förra veckan)")
     args = ap.parse_args()
 
     if args.cmd == "hitta-willys":
@@ -94,6 +98,9 @@ def main() -> int:
 
     if args.cmd == "forslag":
         return visa_forslag(cfg, args.vecka)
+
+    if args.cmd == "betyg":
+        return satt_betyg(args.vecka)
 
     if args.cmd == "login":
         from .browser import login_willys
@@ -215,6 +222,43 @@ def visa_forslag(cfg: dict, vecka: str | None) -> int:
     for i, r in enumerate(forslag.ratter, 1):
         print(f"  {i:>2}. {r.ratt} ({r.tid_min} min)")
     print(f"\nVälj {res.middagar_per_vecka} i den ordning du vill äta dem (första = måndag), t.ex.:\n  {report.valj_exempel(res)}")
+    return 0
+
+
+def satt_betyg(vecka: str | None, fraga=None) -> int:
+    """Visa veckans rätter och låt användaren sätta + eller − med en valfri kommentar."""
+    import json
+
+    from . import betyg, pipeline
+
+    fraga = fraga or input
+
+    vecka = vecka or pipeline.week_id(dt.date.today() - dt.timedelta(days=7))
+    plan = pipeline.DATA / f"{vecka}.json"
+    if not plan.exists():
+        print(f"Fel: hittade ingen plan för {vecka} ({plan})", file=sys.stderr)
+        return 1
+    middagar = json.loads(plan.read_text())["middagar"]
+    tidigare = {p["ratt"]: p for p in betyg.las(pipeline.DATA) if p["vecka"] == vecka}
+    print(f"Betyg för {vecka}. Svara + eller −, Enter hoppar över (ett tidigare betyg står kvar).")
+    satta = 0
+    for m in middagar:
+        nu = tidigare.get(m["ratt"])
+        nu_text = f"  [nu: {'+' if nu['betyg'] > 0 else '−'}{' ' + nu['kommentar'] if nu.get('kommentar') else ''}]" if nu else ""
+        print(f"\n{m.get('dag', '')}: {m['ratt']}{nu_text}")
+        try:
+            svar = fraga("Betyg (+/−): ").strip()
+            if not svar:
+                continue
+            if svar not in ("+", "-", "−"):
+                print("  Hoppar över – svara + eller −.")
+                continue
+            kommentar = fraga("Kommentar (valfritt): ")
+        except EOFError:
+            break
+        betyg.satt(pipeline.DATA, m["ratt"], vecka, 1 if svar == "+" else -1, kommentar)
+        satta += 1
+    print(f"\n{satta} betyg sparade i {betyg.fil(pipeline.DATA)}")
     return 0
 
 

@@ -13,6 +13,7 @@ from pathlib import Path
 import anthropic
 from pydantic import BaseModel, Field
 
+from . import betyg as betygmodul
 from .models import Offer, Product
 
 
@@ -216,12 +217,17 @@ def _personer(h: dict) -> str:
     return personer
 
 
-def _hushallsrader(cfg: dict, previous_dishes: list[str]) -> str:
+def _hushallsrader(cfg: dict, previous_dishes: list[str], smak: betygmodul.Smak | None = None) -> str:
     h = cfg["hushall"]
-    return f"""Önskemål: {h['preferenser'].strip()}
+    rader = f"""Önskemål: {h['preferenser'].strip()}
 UNDVIK ALLTID (hårt krav, inga undantag): {'; '.join(h['undvik']) or 'inget särskilt'}
 Finns alltid hemma (ska inte stå på inköpslistan): {', '.join(cfg['skafferi'])}
 Rätter från de senaste veckorna (upprepa inte): {', '.join(previous_dishes) or 'inga'}"""
+    if smak and smak.gillade:
+        rader += f"\nGillade rätter (gärna liknande): {betygmodul.text(smak.gillade)}"
+    if smak and smak.ogillade:
+        rader += f"\nOgillade rätter (undvik dem och liknande): {betygmodul.text(smak.ogillade)}"
+    return rader
 
 
 def _kampanjgrund(h: dict) -> str:
@@ -327,12 +333,14 @@ class Planner:
             raise RuntimeError(f"Claude Code misslyckades: {str(out.get('result'))[:500]}")
         return schema.model_validate(out["structured_output"])
 
-    def plan_week(self, offers: list[Offer], cfg: dict, previous_dishes: list[str]) -> Veckoplan:
+    def plan_week(
+        self, offers: list[Offer], cfg: dict, previous_dishes: list[str], smak: betygmodul.Smak | None = None
+    ) -> Veckoplan:
         h = cfg["hushall"]
         prompt = f"""Planera {h['middagar_per_vecka']} middagar för {_personer(h)}, {h['portioner_per_middag']} portioner per middag.
 {_dagar(h['middagar_per_vecka'])}
 
-{_hushallsrader(cfg, previous_dishes)}
+{_hushallsrader(cfg, previous_dishes, smak)}
 
 {_kampanjgrund(h)}
 {KAMPANJTYPER} Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
@@ -345,7 +353,9 @@ räcker till två middagar).
 """
         return self._parse(prompt, Veckoplan, _meny_system(cfg), effort="high", model=self.model_meny)
 
-    def propose_dishes(self, offers: list[Offer], cfg: dict, previous_dishes: list[str], antal: int) -> Veckoforslag:
+    def propose_dishes(
+        self, offers: list[Offer], cfg: dict, previous_dishes: list[str], antal: int, smak: betygmodul.Smak | None = None
+    ) -> Veckoforslag:
         """Valläget: `antal` fristående rätter att välja bland, utan dagar och utan inköpslista."""
         h = cfg["hushall"]
         prompt = f"""Föreslå {antal} middagsrätter för {_personer(h)}, {h['portioner_per_middag']} portioner per rätt.
@@ -355,7 +365,7 @@ Variera rätterna enligt önskemålen, så att det finns flera att välja på av
 nämner (t.ex. minst två med fisk och minst två vegetariska när önskemålen tar upp fisk och vegetariskt).
 Ange ingredienserna med mängd för {h['portioner_per_middag']} portioner.
 
-{_hushallsrader(cfg, previous_dishes)}
+{_hushallsrader(cfg, previous_dishes, smak)}
 
 {_kampanjgrund(h)}
 {KAMPANJTYPER}

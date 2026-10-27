@@ -41,7 +41,7 @@ class FejkPlanerare:
         return Veckoplan(middagar=[], inkopslista=[Inkopsrad(vara="ägg", behov="1 st", sokord="ägg", till=[])],
                          kommentar="auto")
 
-    def propose_dishes(self, offers, cfg, previous, antal):
+    def propose_dishes(self, offers, cfg, previous, antal, smak=None):
         FejkPlanerare.anrop.append(("propose_dishes", antal, previous))
         return FORSLAG
 

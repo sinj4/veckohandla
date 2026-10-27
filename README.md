@@ -89,6 +89,15 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
 - **`meny.lage`** (standard `auto`): `auto` gör en färdig meny varje vecka, `val` gör förslag som du väljer bland (se Valläget). **`meny.forslag`** (standard 10) anger antalet förslag.
 
+## Betyg
+
+Efter veckan kan du betygsätta rätterna:
+```sh
+.venv/bin/python -m veckohandla betyg                  # förra veckans rätter
+.venv/bin/python -m veckohandla betyg --vecka 2026-v43
+```
+Svara `+` eller `−` och skriv en valfri kommentar. Enter hoppar över en rätt. Betygen sparas i `data/betyg.json` som rätt, vecka, betyg (+1/−1) och kommentar. Betygsätter du samma rätt samma vecka igen ersätts det gamla betyget. Både meny och förslag får de 15 senaste gillade rätterna ("gärna liknande") och alla ogillade ("undvik dem och liknande"). Har en rätt fått flera betyg gäller det senaste.
+
 ## Prishistorik
 
 Varje veckas kampanjer sparas kompakt i `data/priser/<vecka>.json` med butik, produktkod (Willys), namn, kampanjpris per styck, ordinarie pris och jämförpris. ICA:s id byts varje vecka, så ICA-varor känns igen på butik, namn och varumärke. Nästa vecka jämförs kampanjpriset med medianen av ordinarie pris de senaste 8 veckorna:
