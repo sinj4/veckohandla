@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 from collections import defaultdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import anthropic
@@ -106,6 +107,67 @@ class Produktval(BaseModel):
     val: list[Val]
 
 
+# ---------- Förbrukning ----------
+
+@dataclass
+class Forbrukning:
+    """Summerad förbrukning för ett steg. kostnad_usd finns bara från Claude Code (listpris)."""
+
+    anrop: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_skapad_tokens: int = 0
+    cache_last_tokens: int = 0
+    kostnad_usd: float | None = None
+    modeller: list[str] = field(default_factory=list)
+
+    @property
+    def in_tokens(self) -> int:
+        return self.input_tokens + self.cache_skapad_tokens + self.cache_last_tokens
+
+    def lagg_till(self, usage: dict, kostnad_usd: float | None, modell: str) -> None:
+        self.anrop += 1
+        self.input_tokens += usage.get("input_tokens") or 0
+        self.output_tokens += usage.get("output_tokens") or 0
+        self.cache_skapad_tokens += usage.get("cache_creation_input_tokens") or 0
+        self.cache_last_tokens += usage.get("cache_read_input_tokens") or 0
+        if kostnad_usd is not None:
+            self.kostnad_usd = round((self.kostnad_usd or 0) + kostnad_usd, 6)
+        if modell not in self.modeller:
+            self.modeller.append(modell)
+
+    def __iadd__(self, other: "Forbrukning") -> "Forbrukning":
+        self.anrop += other.anrop
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_skapad_tokens += other.cache_skapad_tokens
+        self.cache_last_tokens += other.cache_last_tokens
+        if other.kostnad_usd is not None:
+            self.kostnad_usd = round((self.kostnad_usd or 0) + other.kostnad_usd, 6)
+        self.modeller += [m for m in other.modeller if m not in self.modeller]
+        return self
+
+    def text(self) -> str:
+        t = f"{_tal(self.in_tokens)} tokens in, {_tal(self.output_tokens)} ut"
+        if self.kostnad_usd is not None:
+            t += f", ≈ {self.kostnad_usd:.2f} USD".replace(".", ",")
+        return t
+
+
+def _tal(n: int) -> str:
+    return f"{n:,}".replace(",", " ")
+
+
+def forbrukning_text(sammanfattning: dict) -> str:
+    """'meny: 41 000 tokens in, 2 300 ut, ≈ 0,35 USD · produktval: … · totalt: …'"""
+    delar = [f"{steg}: {Forbrukning(**f).text()}" for steg, f in sammanfattning["steg"].items()]
+    delar.append(f"totalt: {Forbrukning(**sammanfattning['totalt']).text()}")
+    text = " · ".join(delar)
+    if sammanfattning.get("kalla") == "claude-code" and sammanfattning["totalt"].get("kostnad_usd") is not None:
+        text += " (listpris – med abonnemang räknas det mot kvoten)"
+    return text
+
+
 def _offers_block(offers: list[Offer]) -> str:
     by_store: dict[str, list[Offer]] = defaultdict(list)
     for o in offers:
@@ -171,6 +233,10 @@ def gar_alltid_at_rad(row: Inkopsrad, ord: list[str]) -> bool:
     return any(o.lower() in vara for o in ord if o)
 
 
+# Vilket steg ett anrop hör till avgörs av svarsschemat
+STEG = {"Veckoplan": "meny", "Veckoforslag": "meny", "Produktval": "produktval", "Inkopslista": "inköpslista"}
+
+
 class Planner:
     """Anropar Claude via API-nyckel om ANTHROPIC_API_KEY finns, annars via Claude Code (Pro-inloggning)."""
 
@@ -179,6 +245,22 @@ class Planner:
         self.model_produkter = model_produkter or model_meny
         self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
         self._claude: tuple[str, str] | None = None  # (sökväg, version), loggas vid första anropet
+        self.forbrukning: dict[str, Forbrukning] = {}  # steg -> summerad förbrukning
+
+    def _registrera(self, schema: type[BaseModel], usage: dict, kostnad_usd: float | None, modell: str) -> None:
+        steg = STEG.get(schema.__name__, schema.__name__)
+        self.forbrukning.setdefault(steg, Forbrukning()).lagg_till(usage, kostnad_usd, modell)
+
+    def forbrukning_sammanfattning(self) -> dict:
+        """Förbrukningen per steg och totalt, som JSON-vänlig dict."""
+        totalt = Forbrukning()
+        for f in self.forbrukning.values():
+            totalt += f
+        return {
+            "kalla": "claude-code" if self.client is None else "api",
+            "steg": {k: asdict(v) for k, v in self.forbrukning.items()},
+            "totalt": asdict(totalt),
+        }
 
     def _parse(self, prompt: str, schema: type[BaseModel], system: str, effort: str, model: str):
         if self.client is None:
@@ -191,6 +273,8 @@ class Planner:
             messages=[{"role": "user", "content": prompt}],
             output_format=schema,
         )
+        if resp.usage is not None:  # API-svaret har tokens men ingen kostnad
+            self._registrera(schema, resp.usage.model_dump(), None, model)
         if resp.stop_reason == "refusal":
             raise RuntimeError("Claude avböjde förfrågan")
         if resp.stop_reason == "max_tokens":
@@ -234,6 +318,8 @@ class Planner:
             out = json.loads(proc.stdout)
         except json.JSONDecodeError:
             raise RuntimeError(f"Claude Code svarade inte med JSON: {proc.stderr[-500:] or proc.stdout[-500:]}")
+        if isinstance(out.get("usage"), dict):
+            self._registrera(schema, out["usage"], out.get("total_cost_usd"), model)
         if out.get("is_error") or out.get("structured_output") is None:
             raise RuntimeError(f"Claude Code misslyckades: {str(out.get('result'))[:500]}")
         return schema.model_validate(out["structured_output"])

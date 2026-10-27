@@ -89,6 +89,21 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
 - **`meny.lage`** (standard `auto`): `auto` gör en färdig meny varje vecka, `val` gör förslag som du väljer bland (se Valläget). **`meny.forslag`** (standard 10) anger antalet förslag.
 
+## Kostnad
+
+Varje körning gör 2–3 Claude-anrop: meny (eller förslag), produktval och, i valläget, inköpslistan. Förbrukningen summeras per körning och per steg. Den skrivs i loggen, på en liten rad längst ner i rapporten och i `data/<vecka>-kostnad.json` med en post per körning.
+
+- **Abonnemang (Pro/Max) via Claude Code:** inget extra att betala, anropen räknas mot abonnemangets kvot. `claude -p` anger ändå tokens och vad anropen hade kostat till listpris, och det är den kostnaden som visas.
+- **API-nyckel:** alternativet till abonnemang. Lägg `ANTHROPIC_API_KEY` i `.env`, så används Anthropic API direkt och du betalar per token. API-svaret anger tokens men inget pris, så då visas bara tokens.
+
+Meny och förslag kräver mest omdöme, medan produktval och inköpslista är mer mekaniska. Vill du sänka förbrukningen kan du sätta en billigare modell per steg:
+```yaml
+claude:
+  model: claude-sonnet-5-5
+  model_meny: claude-sonnet-5-5       # meny och förslag
+  model_produkter: claude-haiku-5-5   # produktval och inköpslista (valläget)
+```
+
 ## Hur det fungerar
 
 | Del | Källa |

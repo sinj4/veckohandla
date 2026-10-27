@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable
 
 from .models import Offer, Product
-from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, gar_alltid_at_rad
+from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad
 from . import ingredienser, lager
 from .stores import ica, willys
 
@@ -90,6 +90,7 @@ class Result:
     cart_error: str | None = None  # t.ex. att Willys-inloggningen gått ut
     varningar: list[str] = field(default_factory=list)
     offers_count: dict[str, int] = field(default_factory=dict)
+    kostnad: dict | None = None  # Claude-förbrukning per steg och totalt (se spara_forbrukning)
 
 
 def week_id(today: dt.date | None = None) -> str:
@@ -592,6 +593,7 @@ def _handla(
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))
     (DATA / f"{result.week}-korg.json").write_text(json.dumps(cart_lines, ensure_ascii=False, indent=2))
+    result.kostnad = spara_forbrukning(result.week, planner, "veckomeny", log)
 
     if fill_cart:
         from .cart import NotLoggedIn
@@ -606,6 +608,23 @@ def _handla(
                 f"`python -m veckohandla fyll-varukorg {result.week}`."
             )
     return result
+
+
+def spara_forbrukning(week: str, planner: Planner, korning: str, log=print) -> dict | None:
+    """Logga körningens Claude-förbrukning och lägg till den i data/<vecka>-kostnad.json.
+
+    Filen är en lista med en post per körning, så att förslag och val i samma vecka båda syns.
+    """
+    if not hasattr(planner, "forbrukning_sammanfattning"):
+        return None  # fejkad planerare i tester
+    sammanf = {"korning": korning, "tid": dt.datetime.now().isoformat(timespec="seconds"),
+               **planner.forbrukning_sammanfattning()}
+    log(f"Claude-förbrukning: {forbrukning_text(sammanf)}")
+    fil = DATA / f"{week}-kostnad.json"
+    tidigare = json.loads(fil.read_text()) if fil.exists() else []
+    DATA.mkdir(exist_ok=True)
+    fil.write_text(json.dumps(tidigare + [sammanf], ensure_ascii=False, indent=2))
+    return sammanf
 
 
 def _korgrad(p: Product, qty: int) -> dict:
@@ -686,6 +705,7 @@ class Forslagsresultat:
     middagar_per_vecka: int
     offers_count: dict[str, int] = field(default_factory=dict)
     varningar: list[str] = field(default_factory=list)
+    kostnad: dict | None = None
 
 
 class IngaForslag(RuntimeError):
@@ -721,7 +741,8 @@ def foresla(cfg: dict, log=print) -> Forslagsresultat:
     offers, counts = _kampanjer(cfg, log, varningar)
     antal = (cfg.get("meny") or {}).get("forslag", 10)
     log(f"Tar fram {antal} förslag med Claude…")
-    forslag = _planner(cfg).propose_dishes(offers, cfg, previous_dishes(), antal)
+    planner = _planner(cfg)
+    forslag = planner.propose_dishes(offers, cfg, previous_dishes(), antal)
     if len(forslag.ratter) != antal:
         log(f"  OBS: Claude gav {len(forslag.ratter)} förslag i stället för {antal}")
     for i, r in enumerate(forslag.ratter, 1):
@@ -730,6 +751,7 @@ def foresla(cfg: dict, log=print) -> Forslagsresultat:
                            offers_count=counts, varningar=varningar)
     DATA.mkdir(exist_ok=True)
     forslag_fil(res.week).write_text(forslag.model_dump_json(indent=2))
+    res.kostnad = spara_forbrukning(res.week, planner, "förslag", log)
     return res
 
 

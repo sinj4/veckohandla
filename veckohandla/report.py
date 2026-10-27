@@ -9,6 +9,7 @@ import smtplib
 from email.message import EmailMessage
 
 from .pipeline import Forslagsresultat, Result
+from .planner import forbrukning_text
 
 
 def _kr(x: float | None) -> str:
@@ -64,6 +65,12 @@ def valj_exempel(res: Forslagsresultat) -> str:
     return f"{valj_kommando(res.week)} {' '.join(str(1 + i * steg) for i in range(antal))}"
 
 
+def _kostnadsrad(kostnad: dict | None) -> str:
+    if not kostnad:
+        return ""
+    return f"<p style='color:#999;font-size:11px;margin-top:24px'>Claude: {html.escape(forbrukning_text(kostnad))}</p>"
+
+
 def render_forslag(res: Forslagsresultat) -> str:
     e = html.escape
     parts = [
@@ -93,6 +100,7 @@ def render_forslag(res: Forslagsresultat) -> str:
             f"{e(r.ratt)} <small style='color:#666;font-weight:normal'>({r.tid_min} min)</small></h3>"
             f"<p style='margin:6px 0 0'>{e(r.beskrivning)}</p>{kampanj}</div>"
         )
+    parts.append(_kostnadsrad(res.kostnad))
     parts.append("</body></html>")
     return "\n".join(parts)
 
@@ -229,6 +237,7 @@ def render(res: Result) -> str:
                      f"(spar {_kr(sum(res.butik_besparing.values()))})</p>")
     if res.kop_i_butik_total:
         parts.append(f"<p>Plus köp i butik: ca {_kr(res.kop_i_butik_total)}</p>")
+    parts.append(_kostnadsrad(res.kostnad))
     parts.append("</body></html>")
     return "\n".join(parts)
 
