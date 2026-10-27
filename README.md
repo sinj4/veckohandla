@@ -19,13 +19,35 @@ Varje vecka:
 ## Kom igång
 
 Det här behövs:
-- Python 3.11 eller senare.
-- Ett Willys-konto.
+- Python 3.12 eller senare.
+- Ett konto hos Willys eller Hemköp för korgen.
 - Antingen [Claude Code](https://claude.com/claude-code) inloggat med ett Claude Pro- eller Max-abonnemang, eller en `ANTHROPIC_API_KEY`.
 
+Välj en av tre vägar.
+
+### 1. Snabbast: på din dator
+```sh
+git clone https://github.com/sinj4/veckohandla ~/veckohandla && cd ~/veckohandla
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python -m playwright install chromium
+.venv/bin/python -m veckohandla init       # installationsguide: skriver config.yaml (och SMTP-lösenordet i .env)
+.venv/bin/python -m veckohandla kontroll   # checklista: butik, kampanjer, Claude, mejl, inloggning
+```
+Guiden frågar efter ort och butik, hushåll, vad ni inte äter, läge och mejl. Enter väljer standardsvaret. Den avslutar med `kontroll`, erbjuder `login` och skriver ut nästa steg. `init --ingen-fraga` tar alla svar från flaggor; se `init --help`.
+
+Sedan:
+```sh
+.venv/bin/python -m veckohandla kor --ingen-mejl     # testkörning, rapporten hamnar i data/
+.venv/bin/python -m veckohandla fyll-varukorg        # lägg den granskade listan i korgen
+```
+
+### 2. I molnet varje vecka: mallen
+[sinj4/veckohandla-mall](https://github.com/sinj4/veckohandla-mall) är ett färdigt repo för GitHub Actions. Klicka på **Use this template**, lägg in `config.yaml` och två secrets, så planeras veckan varje måndag och rapporten mejlas. Korgen fylls sedan på datorn med `fyll.sh`. Mallens README går igenom det steg för steg.
+
+### 3. För utvecklare
 ```sh
 git clone https://github.com/<du>/veckohandla && cd veckohandla
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 .venv/bin/python -m playwright install chromium
 
 cp config.example.yaml config.yaml   # anpassa hushåll, önskemål och butiker
@@ -36,7 +58,8 @@ cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 .venv/bin/python -m veckohandla erbjudanden          # kontrollera att kampanjerna hämtas
 .venv/bin/python -m veckohandla login                # logga in en gång hos kedjan i butiker.e_handel
 .venv/bin/python -m veckohandla kor --ingen-mejl     # testkörning, rapporten hamnar i data/
-.venv/bin/python -m veckohandla fyll-varukorg        # lägg den granskade listan i Willys-korgen
+.venv/bin/python -m veckohandla fyll-varukorg        # lägg den granskade listan i korgen
+.venv/bin/python -m pytest                           # testerna, utan nätverk
 ```
 
 Du kan också planera och fylla korgen i ett steg med `kor --fyll-varukorg`.
@@ -148,6 +171,9 @@ veckohandla/
   cart.py            fyller varukorgen hos Willys eller Hemköp
   ingredienser.py    ingredienskontroll mot spärrorden
   report.py          HTML-rapport och mejl
+  installera.py      installationsguiden (init)
+  yamltext.py        ändrar config-text och behåller kommentarerna
+  kontroll.py        checklistan (kontroll)
 tests/               pytest med fixturer, utan nätverk
 ```
 
@@ -157,6 +183,18 @@ tests/               pytest med fixturer, utan nätverk
 .venv/bin/python -m pytest
 ```
 Testerna använder fixturer i `tests/fixtures/` och blockerar alla nätverksanrop.
+
+## Felsökning
+
+Kör först `python -m veckohandla kontroll`. Den visar vad som saknas och vad du ska göra.
+
+| Det här syns | Orsak | Gör så här |
+|---|---|---|
+| `API Error: 400 … does not support this model; version … or newer is required`, eller "Claude Code är för gammal för modellen" | Claude Code är äldre än modellen kräver | `npm install -g @anthropic-ai/claude-code@latest`. Loggen visar vilken binär som används. Välj en annan med `CLAUDE_BIN`. Mallens workflow installerar alltid senaste versionen. |
+| "MEJLET SKICKADES INTE: SMTP_PASSWORD saknas" (exit-kod 4) | App-lösenordet för mejlet saknas | Lägg `SMTP_PASSWORD=…` i `.env` (eller kör `init` igen). I molnet: secret `SMTP_PASSWORD`. Rapporten är ändå sparad i `data/`. |
+| "Inte inloggad på Willys – kör: python -m veckohandla login", eller "Willys-inloggningen har gått ut" i rapporten | Inloggningen i webbläsarprofilen har gått ut | `python -m veckohandla login` och sedan `fyll-varukorg <vecka>`. |
+| "Veckans kampanjer är inte uppe än" (exit-kod 3) | Måndag morgon innan butikerna har publicerat veckans kampanjer | Inget fel. Schemat försöker igen senare på morgonen. Först i sista schemalagda körningen, eller i en manuell körning, blir det ett fel. Kör då lite senare. |
+| "ICA-priser jämförs när du väljer rätter på datorn (ICA blockerar molnet)", eller 403 från ica.se i GitHub Actions | ica.se blockerar GitHub Actions | Sätt `bara_lokalt: true` för ICA-butikerna. ICA jämförs då när du kör på datorn. Projektet försöker inte kringgå blockeringen. |
 
 ## Begränsningar och ansvar
 
