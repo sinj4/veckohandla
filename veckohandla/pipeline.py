@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+import httpx
+
 from .models import Offer, Product
 from .planner import (Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad,
                       matlador, matlador_for)
@@ -93,7 +95,7 @@ class Result:
     kop_i_butik_total: float = 0.0
     cart: dict | None = None
     cart_error: str | None = None  # t.ex. att Willys-inloggningen gått ut
-    varningar: list[str] = field(default_factory=list)
+    varningar: list[str] = field(default_factory=list)  # Notis-poster visas neutralt
     offers_count: dict[str, int] = field(default_factory=dict)
     kostnad: dict | None = None  # Claude-förbrukning per steg och totalt (se spara_forbrukning)
     prismarkerade: list[Offer] = field(default_factory=list)  # kampanjer med "bra pris"/"vanligt pris"
@@ -385,6 +387,24 @@ def butikens_troskel(cfg: dict) -> Callable[[str], float]:
     return troskel
 
 
+ICA_LOKALT = "ICA-priser jämförs när du väljer rätter på datorn (ICA blockerar molnet)."
+
+
+class Notis(str):
+    """Neutral information i varningslistan – visas utan varningsmarkering. `tips` skrivs bara i loggen."""
+
+    tips: str
+
+    def __new__(cls, text: str, tips: str = "") -> "Notis":
+        n = super().__new__(cls, text)
+        n.tips = tips
+        return n
+
+
+def i_molnet() -> bool:
+    return bool(os.environ.get("GITHUB_ACTIONS"))
+
+
 def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offer]:
     """Fel i e-handelns kampanjer stoppar körningen; butikskampanjer, jämförelsekedjor och ICA-butiker
     som fallerar hoppas över med en varning."""
@@ -409,12 +429,20 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
                 raise
             varningar.append(f"Kunde inte hämta kampanjer från {c['namn']}: {e}")
     for s in stores.get("ica", []):
+        if s.get("bara_lokalt") and i_molnet():
+            if varningar is not None:  # ICA blockerar GitHub Actions – jämförs i stället på datorn
+                varningar.append(Notis(ICA_LOKALT))
+            continue
         try:
             offers += ica.fetch_offers(s["erbjudande_slug"], s["namn"])
         except Exception as e:  # nätverk, ändrad sida m.m.
             if varningar is None:
                 raise
-            varningar.append(f"Kunde inte hämta kampanjer från {s['namn']}: {e}")
+            if isinstance(e, httpx.HTTPStatusError) and e.response.status_code == 403:
+                varningar.append(Notis(ICA_LOKALT, tips=f"Tips: {s['namn']} svarade 403 – sätt bara_lokalt: true för "
+                                                         "butiken i config.yaml så hämtas den bara på datorn."))
+            else:
+                varningar.append(f"Kunde inte hämta kampanjer från {s['namn']}: {e}")
     return offers
 
 
@@ -479,8 +507,16 @@ def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = 
     log("Hämtar veckans kampanjer…")
     fore_kampanjer = len(varningar)
     offers = fetch_all_offers(cfg, varningar)
+    loggade = set()
     for v in varningar[fore_kampanjer:]:
-        log(f"  VARNING: {v}")
+        if not isinstance(v, Notis):
+            log(f"  VARNING: {v}")
+            continue
+        if v not in loggade:
+            loggade.add(v)
+            log(f"  {v}")
+        if v.tips:
+            log(f"  {v.tips}")
     if kontrollera_farska:
         kontrollera_farska_kampanjer(cfg, offers)
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]

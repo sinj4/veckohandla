@@ -8,7 +8,7 @@ import re
 import smtplib
 from email.message import EmailMessage
 
-from .pipeline import Forslagsresultat, Result
+from .pipeline import Forslagsresultat, Notis, Result
 from .planner import forbrukning_text
 
 
@@ -85,6 +85,23 @@ def _prislista(markerade: list) -> str:
             f"{len(markerade) - len(bra)} med vanligt pris.{lista}</div>")
 
 
+def _varningar(varningar: list[str]) -> list[str]:
+    """Varningar i gul ruta; neutrala notiser (t.ex. att ICA jämförs på datorn) som grå rad, en gång var."""
+    e = html.escape
+    ut, sedda = [], set()
+    for v in varningar:
+        if isinstance(v, Notis):
+            if v not in sedda:
+                sedda.add(v)
+                ut.append(f"<p style='color:#666;font-size:13px'>ℹ️ {e(v)}</p>")
+            continue
+        ut.append(
+            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:10px;border-radius:8px;font-size:14px'>"
+            f"⚠️ {e(v)}</p>"
+        )
+    return ut
+
+
 def _kostnadsrad(kostnad: dict | None) -> str:
     if not kostnad:
         return ""
@@ -107,11 +124,7 @@ def render_forslag(res: Forslagsresultat) -> str:
         + "</p>",
         _prislista(res.prismarkerade),
     ]
-    for v in res.varningar:
-        parts.append(
-            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:10px;border-radius:8px;font-size:14px'>"
-            f"⚠️ {e(v)}</p>"
-        )
+    parts += _varningar(res.varningar)
     for i, r in enumerate(res.forslag.ratter, 1):
         kampanj = (f"<p style='color:#2a7a2a;font-size:13px;margin:6px 0 0'>Kampanj: {e(', '.join(r.kampanjvaror))}</p>"
                    if r.kampanjvaror else "")
@@ -147,11 +160,7 @@ def render(res: Result) -> str:
     ]
     notis = {(o.store, o.code): o.prisnotis for o in res.prismarkerade}
 
-    for v in res.varningar:
-        parts.append(
-            "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:10px;border-radius:8px;font-size:14px'>"
-            f"⚠️ {e(v)}</p>"
-        )
+    parts += _varningar(res.varningar)
 
     if res.cart_error:
         parts.append(

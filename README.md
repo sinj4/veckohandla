@@ -88,6 +88,7 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`sparrord_ingredienser`**: ord som bara jämförs mot ingredienslistan för valda produkter. Det fångar till exempel köttbullar med fläsk utan att stoppa köttbullar på bara nöt. Även `sparrord` jämförs mot ingredienserna. En vara som matchar byts mot nästa reserv. Fungerar inget alternativ märks raden "Köp manuellt". Kött, chark och färdigmat utan ingrediensuppgift märks "Kontrollera ingredienser". Ingredienslistor cachas per produkt i `data/ingredienser-cache.json` och hämtas på nytt efter 30 dagar.
 - **`butiker.willys.i_butik`** (standard `true`): hämta även Willys kampanjer som bara gäller i butiken. Kampanjer som också finns i e-handeln räknas bara en gång.
 - **`min_besparing_willys_i_butik_kr`** (standard 10, under `optimering`): minsta samlade besparing för att Willys butikskampanjer ska flaggas i rapporten.
+- **`bara_lokalt: true`** (per ICA-butik under `butiker.ica`): butiken hämtas inte när miljövariabeln `GITHUB_ACTIONS` är satt. ica.se svarar 403 till GitHub Actions men fungerar från en vanlig dator. Rapporten visar då en neutral rad i stället för en varning: "ICA-priser jämförs när du väljer rätter på datorn (ICA blockerar molnet)." Samma rad visas om en ICA-butik utan `bara_lokalt` svarar 403, och loggen tipsar då om inställningen. Andra fel ger fortfarande en varning.
 - **`min_besparing_for_delning_kr`** (under `optimering`): minsta samlade besparing per ICA-butik för att flagga dess kampanjer. Under trösklarna flaggas inget, men varorna ligger alltid i korgen.
 - **`uteslut_kategorier`** (under `optimering`): kampanjkategorier som inte är mat och inte skickas till menyplaneraren. Saknas nyckeln används en standardlista, och `[]` stänger av filtret.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
@@ -160,6 +161,7 @@ Testerna använder fixturer i `tests/fixtures/` och blockerar alla nätverksanro
 ## Begränsningar och ansvar
 
 - **ICA:s e-handel stöds inte.** Den blockerar automatiserade webbläsare, och projektet försöker inte kringgå det. ICA-kampanjer används bara för jämförelse och blir en lista för butiksbesök.
+- **ica.se blockerar GitHub Actions** (403). Projektet försöker inte kringgå det. Med `bara_lokalt: true` jämförs ICA i stället när du kör på datorn, till exempel med `valj`.
 - Projektet använder **inofficiella** endpoints som kan ändras utan förvarning. Använd det för eget bruk och med måttlig belastning.
 - Priser för lösvikt är uppskattningar tills varan har vägts. Kampanjrabatter syns på korgens total.
 - **Granska alltid korgen innan du beställer.** Projektet är inte knutet till Willys, Axfood eller ICA.

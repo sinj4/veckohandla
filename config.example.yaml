@@ -70,9 +70,12 @@ butiker:
   #   i_butik: true
   # ICA-butiker används för kampanjjämförelse; billigare ICA-varor flaggas i rapporten (korgen är ändå komplett).
   # Slug = sista delen av butikens erbjudandesida, t.ex. https://www.ica.se/erbjudanden/<slug>/
+  # bara_lokalt: true = hämta inte butiken i GitHub Actions (ICA svarar 403 till molnet); den jämförs
+  # då när du väljer rätter på datorn, och rapporten säger det med en neutral rad i stället för en varning.
   ica:
     - namn: ICA Kvantum Trossen
       erbjudande_slug: ica-kvantum-trossen-16622
+      bara_lokalt: true
     - namn: ICA Supermarket Vagnhärad
       erbjudande_slug: ica-supermarket-vagnharad-1004281
 
