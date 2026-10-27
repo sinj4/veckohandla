@@ -1,5 +1,6 @@
 """Kommandon:
 
+  python -m veckohandla kontroll [--utan-inloggning]   # kontrollera installationen (inga Claude-anrop)
   python -m veckohandla hitta-willys ORT    # hitta store_id för din Willys
   python -m veckohandla hitta-hemkop ORT    # hitta store_id för ditt Hemköp
   python -m veckohandla erbjudanden        # visa veckans kampanjer (ingen Claude, ingen inloggning)
@@ -37,7 +38,7 @@ def config_path() -> Path:
 def load_config() -> dict:
     path = config_path()
     if not path.exists():
-        sys.exit(f"{path} saknas – kör: cp config.example.yaml config.yaml och anpassa den")
+        sys.exit(f"{path} saknas – kör: python -m veckohandla init")
     return yaml.safe_load(path.read_text())
 
 
@@ -57,6 +58,9 @@ def main() -> int:
     for kedja in ("willys", "hemkop"):
         h = sub.add_parser(f"hitta-{kedja}")
         h.add_argument("ort")
+    ko = sub.add_parser("kontroll", help="kontrollera installationen (inga Claude-anrop, inga ändringar)")
+    ko.add_argument("--utan-inloggning", action="store_true",
+                    help="öppna inte webbläsarprofilen för att kontrollera inloggningen")
     sub.add_parser("erbjudanden")
     sub.add_parser("login")
     f = sub.add_parser("fyll-varukorg")
@@ -86,6 +90,12 @@ def main() -> int:
             town = (s.get("address") or {}).get("town") or "?"
             print(f"{s.get('storeId', '?'):>6}  {s.get('name', '?')}  ({town})  e-handel/hämtning: {'ja' if s.get('clickAndCollect') else 'nej'}")
         return 0
+
+    if args.cmd == "kontroll":
+        from . import kontroll, pipeline
+
+        return kontroll.kor(config_path(), pipeline.DATA, ROOT / "browser-profiles",
+                            med_inloggning=not args.utan_inloggning)
 
     cfg = load_config()
 
