@@ -57,10 +57,17 @@ alltid_kop:
   - {namn: "bananer", antal: 8}
 
 butiker:
+  e_handel: willys        # willys eller hemkop: kedjan där korgen fylls och varor söks (standard willys)
   willys:
     namn: Willys Vagnhärad Lånesta
     store_id: "2341"      # e-handelsbutiken – hitta din: python -m veckohandla hitta-willys <ort>
     i_butik: true         # hämta även kampanjer som bara gäller i butiken
+  # Hemköp (samma ägare och API som Willys). Med e_handel: willys jämförs bara Hemköps butikskampanjer,
+  # som ICA. Med e_handel: hemkop blir Hemköp korgen och Willys jämförelse.
+  # hemkop:
+  #   namn: Hemköp Nyköping C
+  #   store_id: "4685"    # hitta din: python -m veckohandla hitta-hemkop <ort>
+  #   i_butik: true
   # ICA-butiker används för kampanjjämförelse; billigare ICA-varor flaggas i rapporten (korgen är ändå komplett).
   # Slug = sista delen av butikens erbjudandesida, t.ex. https://www.ica.se/erbjudanden/<slug>/
   ica:

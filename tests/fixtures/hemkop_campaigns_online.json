@@ -1,0 +1,484 @@
+{
+ "results": [
+  {
+   "potentialPromotions": [
+    {
+     "comparePrice": "50,00 kr",
+     "mainProductCode": "101245382_ST",
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "",
+     "conditionLabelFormatted": "",
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "cartLabelFormatted": "",
+     "productCodes": [
+      "101245382_ST",
+      "101245380_ST",
+      "101222584_ST",
+      "101548666_ST",
+      "101222583_ST"
+     ],
+     "campaignType": "GENERAL",
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z061",
+      "visible": null
+     },
+     "applied": false,
+     "price": {
+      "currencyIso": "SEK",
+      "value": 10.0,
+      "priceType": "BUY",
+      "formattedValue": "10,00 kr",
+      "minQuantity": null,
+      "maxQuantity": null,
+      "sapUnit": null
+     },
+     "qualifyingCount": 1,
+     "cartLabel": null,
+     "timesUsed": null,
+     "conditionLabel": "",
+     "rewardLabel": "10,00",
+     "textLabel": "",
+     "textLabelGenerated": "",
+     "validUntil": 1793573999000,
+     "code": "2500334401",
+     "threshold": null,
+     "lowestHistoricalPrice": null,
+     "priority": 508
+    }
+   ],
+   "inactivePotentialPromotions": [],
+   "precautionaryStatements": [],
+   "tobaccoFreeNicotineProduct": false,
+   "nicotineMedicalProduct": false,
+   "showGoodPriceIcon": false,
+   "tobaccoProduct": false,
+   "priceValue": 13.39,
+   "isDrugProduct": false,
+   "comparePrice": "66,95 kr",
+   "averageWeight": null,
+   "depositPrice": "",
+   "solrSearchScore": 850.91565,
+   "energyDeclaration": null,
+   "comparePriceUnit": "l",
+   "newsSplashProduct": false,
+   "notAllowedAnonymous": false,
+   "notAllowedB2b": false,
+   "gdprTrackingIncompliant": false,
+   "savingsAmount": 3.39,
+   "priceNoUnit": "13,39",
+   "googleAnalyticsCategory": "mejeri-ost-och-agg|matlagningsmejerier|creme-fraiche",
+   "pickupProductLine2": "GARANT, 2dl",
+   "priceUnit": "kr/st",
+   "productLine2": "GARANT, 2dl",
+   "nonEkoProduct": false,
+   "hazards": [],
+   "price": "13,39 kr",
+   "ranking": 850.9156713812882,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07340083448621_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "labels": [
+    "swedish_flag",
+    "from_sweden"
+   ],
+   "addToCartDisabled": false,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07340083448621_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "maxOrderQuantity": null,
+   "incrementValue": 1.0,
+   "bargainProduct": false,
+   "addToCartMessage": "",
+   "manufacturer": "Garant",
+   "online": true,
+   "displayVolume": "2dl",
+   "outOfStock": false,
+   "seoDescription": "",
+   "seoTitle": "",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "code": "101245382_ST",
+   "name": "Crème Fraiche 32%"
+  },
+  {
+   "potentialPromotions": [
+    {
+     "comparePrice": "99,00 kr/kg",
+     "mainProductCode": "101053976_KG",
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "",
+     "conditionLabelFormatted": "",
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "cartLabelFormatted": "",
+     "productCodes": null,
+     "campaignType": "LOYALTY",
+     "promotionType": "SubtotalOrderPromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z060",
+      "visible": null
+     },
+     "applied": false,
+     "price": {
+      "currencyIso": "SEK",
+      "value": 99.0,
+      "priceType": "BUY",
+      "formattedValue": "99,00 kr/kg",
+      "minQuantity": null,
+      "maxQuantity": null,
+      "sapUnit": null
+     },
+     "qualifyingCount": null,
+     "cartLabel": null,
+     "timesUsed": null,
+     "conditionLabel": "",
+     "rewardLabel": "99 kr/kg",
+     "textLabel": "Klubbpris",
+     "textLabelGenerated": "Klubbpris",
+     "validUntil": 1793573999000,
+     "code": "2500328728",
+     "threshold": 0.0,
+     "lowestHistoricalPrice": null,
+     "priority": 609
+    }
+   ],
+   "inactivePotentialPromotions": [],
+   "precautionaryStatements": [],
+   "tobaccoFreeNicotineProduct": false,
+   "nicotineMedicalProduct": false,
+   "showGoodPriceIcon": false,
+   "tobaccoProduct": false,
+   "priceValue": 163.4,
+   "isDrugProduct": false,
+   "comparePrice": "163,40 kr",
+   "averageWeight": 0.9,
+   "depositPrice": "",
+   "solrSearchScore": 760.91565,
+   "energyDeclaration": null,
+   "comparePriceUnit": "kg",
+   "newsSplashProduct": false,
+   "notAllowedAnonymous": false,
+   "notAllowedB2b": false,
+   "gdprTrackingIncompliant": false,
+   "savingsAmount": 64.4,
+   "priceNoUnit": "163,40",
+   "googleAnalyticsCategory": "kott-fagel-och-chark|fagel-|farsk-fagel",
+   "pickupProductLine2": "GULDFÅGELN, ca: 900g",
+   "priceUnit": "kr/kg",
+   "productLine2": "GULDFÅGELN, ca: 900g",
+   "nonEkoProduct": false,
+   "hazards": [],
+   "price": "163,40 kr/kg",
+   "ranking": 760.915671466485,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/02307116100005_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "labels": [
+    "swedish_flag",
+    "swedish_bird",
+    "keyhole"
+   ],
+   "addToCartDisabled": false,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/02307116100005_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "maxOrderQuantity": null,
+   "incrementValue": 1.0,
+   "bargainProduct": false,
+   "addToCartMessage": "",
+   "manufacturer": "Guldfågeln",
+   "online": true,
+   "displayVolume": "ca: 900g",
+   "outOfStock": false,
+   "seoDescription": "",
+   "seoTitle": "",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "code": "101053976_KG",
+   "name": "Kyckling Bröstfilé Sverige"
+  },
+  {
+   "potentialPromotions": [
+    {
+     "comparePrice": "12,00 kr",
+     "mainProductCode": "101154625_ST",
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "",
+     "conditionLabelFormatted": "",
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "cartLabelFormatted": "",
+     "productCodes": [
+      "101154625_ST"
+     ],
+     "campaignType": "LOYALTY",
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z060",
+      "visible": null
+     },
+     "applied": false,
+     "price": {
+      "currencyIso": "SEK",
+      "value": 12.0,
+      "priceType": "BUY",
+      "formattedValue": "12,00 kr",
+      "minQuantity": null,
+      "maxQuantity": null,
+      "sapUnit": null
+     },
+     "qualifyingCount": 2,
+     "cartLabel": null,
+     "timesUsed": null,
+     "conditionLabel": "2 för",
+     "rewardLabel": "24,00",
+     "textLabel": "Klubbpris",
+     "textLabelGenerated": "Klubbpris",
+     "validUntil": 1793573999000,
+     "code": "2500322841",
+     "threshold": null,
+     "lowestHistoricalPrice": null,
+     "priority": 608
+    }
+   ],
+   "inactivePotentialPromotions": [],
+   "precautionaryStatements": [],
+   "tobaccoFreeNicotineProduct": false,
+   "nicotineMedicalProduct": false,
+   "showGoodPriceIcon": false,
+   "tobaccoProduct": false,
+   "priceValue": 18.88,
+   "isDrugProduct": false,
+   "comparePrice": "18,88 kr",
+   "averageWeight": null,
+   "depositPrice": "",
+   "solrSearchScore": 760.91565,
+   "energyDeclaration": null,
+   "comparePriceUnit": "st",
+   "newsSplashProduct": false,
+   "notAllowedAnonymous": false,
+   "notAllowedB2b": false,
+   "gdprTrackingIncompliant": false,
+   "savingsAmount": 13.76,
+   "priceNoUnit": "18,88",
+   "googleAnalyticsCategory": "skafferi|kryddor-och-smaksattare|kryddor",
+   "pickupProductLine2": "GARANT, 0,5g",
+   "priceUnit": "kr/st",
+   "productLine2": "GARANT, 0,5g",
+   "nonEkoProduct": false,
+   "hazards": [],
+   "price": "18,88 kr",
+   "ranking": 760.9156715418515,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07311041064214_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "labels": [],
+   "addToCartDisabled": false,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07311041064214_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "maxOrderQuantity": null,
+   "incrementValue": 1.0,
+   "bargainProduct": false,
+   "addToCartMessage": "",
+   "manufacturer": "Garant",
+   "online": true,
+   "displayVolume": "0,5g",
+   "outOfStock": false,
+   "seoDescription": "",
+   "seoTitle": "",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "code": "101154625_ST",
+   "name": "Saffran Klass 1 Påse"
+  }
+ ],
+ "sorts": null,
+ "pagination": {
+  "pageSize": 100,
+  "currentPage": 0,
+  "sort": null,
+  "numberOfPages": 1,
+  "totalNumberOfResults": 3,
+  "allProductsInCategoriesCount": 0,
+  "allProductsInSearchCount": 0
+ },
+ "relatedResults": null,
+ "relatedResultsPagination": null,
+ "currentQuery": null,
+ "breadcrumbs": [],
+ "facets": [
+  {
+   "code": "productLabelTypes",
+   "name": "productLabelTypes",
+   "priority": 0,
+   "category": false,
+   "multiSelect": true,
+   "visible": true,
+   "topValues": null,
+   "values": [
+    {
+     "code": "ASC_FISH",
+     "name": "ASC-märkt fisk",
+     "count": 2,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AASC_FISH",
+      "query": {
+       "value": ":productLabelTypes_string_mv:ASC_FISH",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "ECOLOGICAL",
+     "name": "Ekologisk",
+     "count": 34,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AECOLOGICAL",
+      "query": {
+       "value": ":productLabelTypes_string_mv:ECOLOGICAL",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "FAIRTRADE_FACET",
+     "name": "Fairtrade",
+     "count": 4,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AFAIRTRADE_FACET",
+      "query": {
+       "value": ":productLabelTypes_string_mv:FAIRTRADE_FACET",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "ENVIRONMENTAL_FACET",
+     "name": "Miljömärkt",
+     "count": 51,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AENVIRONMENTAL_FACET",
+      "query": {
+       "value": ":productLabelTypes_string_mv:ENVIRONMENTAL_FACET",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "MSC_FISH",
+     "name": "MSC-märkt fisk",
+     "count": 10,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AMSC_FISH",
+      "query": {
+       "value": ":productLabelTypes_string_mv:MSC_FISH",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "KEYHOLE",
+     "name": "Nyckelhålet",
+     "count": 74,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3AKEYHOLE",
+      "query": {
+       "value": ":productLabelTypes_string_mv:KEYHOLE",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    },
+    {
+     "code": "SWEDISH_FLAG",
+     "name": "Svenskt",
+     "count": 48,
+     "query": {
+      "url": "%3AproductLabelTypes_string_mv%3ASWEDISH_FLAG",
+      "query": {
+       "value": ":productLabelTypes_string_mv:SWEDISH_FLAG",
+       "filterQueries": [],
+       "searchQueryContext": null,
+       "searchType": null
+      }
+     },
+     "selected": false
+    }
+   ]
+  }
+ ],
+ "freeTextSearch": null,
+ "categoryCode": null,
+ "keywordRedirectUrl": null,
+ "spellingSuggestion": null,
+ "categoryName": null,
+ "customSuggestion": null,
+ "categoryBreadcrumbs": null,
+ "navigationCategories": null,
+ "usedQuery": null
+}

@@ -15,7 +15,8 @@ from .models import Offer, Product
 from .planner import (Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad,
                       matlador, matlador_for)
 from . import betyg, ingredienser, lager, priser
-from .stores import ica, willys
+from .stores import hemkop, ica, willys
+from .stores.axfood import AxfoodSession
 
 # Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
 DATA = Path(os.environ.get("VECKOHANDLA_DATA") or Path(__file__).resolve().parent.parent / "data")
@@ -79,8 +80,11 @@ class Result:
     week: str
     plan: Veckoplan
     lines: list[Line]
+    # willys_* gäller e-handelskedjan (Willys eller Hemköp, se butiker.e_handel)
     willys_namn: str = "Willys"
     willys_i_butik_namn: str = "Willys (i butik)"
+    kedja: str = "Willys"  # e-handelskedjans namn, t.ex. "Hemköp"
+    kedja_url: str = "https://www.willys.se/"
     butik_flaggor: dict[str, list[Line]] = field(default_factory=dict)  # butik -> flaggade korgrader
     butik_besparing: dict[str, float] = field(default_factory=dict)  # butik -> samlad besparing (flaggade)
     kop_i_butik: dict[str, list[Line]] = field(default_factory=dict)  # butik -> rader utan Willys-produkt
@@ -253,23 +257,26 @@ ICA_RISK_KATEGORIER = {5, 6, 14, 16}
 
 def kontrollera_butiksrader(
     lines: list[Line],
-    i_butik_namn: str,
+    axfood_butiker: str | set[str],
     kampanjer: dict[tuple[str, str], Offer],
     ik: ingredienser.Ingredienskontroll,
     log=print,
 ) -> None:
     """Samma fläskskydd för butiksalternativen som för korgen.
 
-    Willys i butik: ingredienserna för butik_kod kontrolleras (samma cache, samma GET-minne). Träff ->
+    Axfood-butiker (e-handelskedjan i butik och en jämförelsekedja som Hemköp – samma produktkoder):
+    ingredienserna för butik_kod kontrolleras (samma cache, samma GET-minne). Träff ->
     butiksalternativet tas bort (e-handelsvaran ligger kvar i korgen). Saknas uppgift i
     kött/chark/färdigmat -> "Kontrollera ingredienser". ICA har ingen ingrediensuppgift: alternativ i
     kött-, chark- och färdigmatskategori flaggas.
     """
+    if isinstance(axfood_butiker, str):
+        axfood_butiker = {axfood_butiker}
     for l in lines:
         if l.butik is None:
             continue
         offer = kampanjer.get((l.butik.butik, l.butik.butik_kod or ""))
-        if l.butik.butik == i_butik_namn:
+        if l.butik.butik in axfood_butiker:
             k = ik.kontrollera(l.butik.butik_kod or "", kategori_om_okand=offer.category if offer else None)
             if k.status == "borttagen":
                 l.butik_stoppad = f"kampanjvaran innehåller {k.ord}"
@@ -321,8 +328,48 @@ def tillampa_butikstroskel(
     return flaggor, besparing, kop_i_butik
 
 
+# Axfood-kedjor: e_handel väljer korg och sökning; en annan konfigurerad kedja blir jämförelsebutik
+KEDJOR = {"willys": willys, "hemkop": hemkop}
+
+
+def e_handel(cfg: dict) -> str:
+    """Nyckeln för kedjan som är korg och sökning (butiker.e_handel, standard willys)."""
+    butiker = cfg["butiker"]
+    nyckel = butiker.get("e_handel", "willys")
+    if nyckel not in KEDJOR:
+        raise ValueError(f"butiker.e_handel måste vara {' eller '.join(KEDJOR)}, inte {nyckel!r}")
+    if nyckel not in butiker:
+        raise ValueError(f"butiker.e_handel är {nyckel}, men butiker.{nyckel} saknas i config")
+    return nyckel
+
+
+def e_handel_butik(cfg: dict) -> dict:
+    return cfg["butiker"][e_handel(cfg)]
+
+
+def kedjemodul(cfg: dict):
+    return KEDJOR[e_handel(cfg)]
+
+
+def jamforelsekedjor(cfg: dict) -> list[tuple[str, dict]]:
+    """Andra Axfood-kedjor i config som bara jämförs (deras butikskampanjer), t.ex. Hemköp när Willys är e-handel."""
+    egen = e_handel(cfg)
+    return [(k, cfg["butiker"][k]) for k in KEDJOR if k != egen and cfg["butiker"].get(k, {}).get("store_id")]
+
+
+def axfood_butiker(cfg: dict) -> set[str]:
+    """Butiksnamn vars kampanjkoder är Axfood-produktkoder (e-handelskedjan i butik och jämförelsekedjorna)."""
+    return {willys_i_butik_namn(cfg)} | {c["namn"] for _, c in jamforelsekedjor(cfg)}
+
+
+def genitiv(namn: str) -> str:
+    """'Hemköp' -> 'Hemköps', 'Willys' -> 'Willys'"""
+    return namn if namn[-1:].lower() in "sxz" else f"{namn}s"
+
+
 def willys_i_butik_namn(cfg: dict) -> str:
-    return f"{cfg['butiker']['willys']['namn']} (i butik)"
+    """Namnet på e-handelskedjans butikskampanjer, t.ex. 'Willys Vagnhärad (i butik)'."""
+    return f"{e_handel_butik(cfg)['namn']} (i butik)"
 
 
 def butikens_troskel(cfg: dict) -> Callable[[str], float]:
@@ -339,21 +386,28 @@ def butikens_troskel(cfg: dict) -> Callable[[str], float]:
 
 
 def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offer]:
-    """Willys e-handelsfel stoppar körningen; butikskampanjer och ICA-butiker som fallerar hoppas över
-    med en varning."""
+    """Fel i e-handelns kampanjer stoppar körningen; butikskampanjer, jämförelsekedjor och ICA-butiker
+    som fallerar hoppas över med en varning."""
     stores = cfg["butiker"]
-    w = stores["willys"]
-    offers = willys.fetch_offers(w["store_id"], w["namn"])
+    w, kedja = e_handel_butik(cfg), kedjemodul(cfg)
+    offers = kedja.fetch_offers(w["store_id"], w["namn"])
     if w.get("i_butik", True):
         try:
             online = {o.code for o in offers if o.code}
             # Varor med kampanj även i e-handeln köps där – bara rena butikskampanjer behålls
-            offers += [o for o in willys.fetch_offers(w["store_id"], willys_i_butik_namn(cfg), kanal="offline")
+            offers += [o for o in kedja.fetch_offers(w["store_id"], willys_i_butik_namn(cfg), kanal="offline")
                        if o.code not in online]
         except Exception as e:
             if varningar is None:
                 raise
-            varningar.append(f"Kunde inte hämta Willys butikskampanjer: {e}")
+            varningar.append(f"Kunde inte hämta {genitiv(kedja.KEDJA.namn)} butikskampanjer: {e}")
+    for nyckel, c in jamforelsekedjor(cfg):
+        try:  # som ICA: bara butikens hyllkampanjer, för jämförelse
+            offers += KEDJOR[nyckel].fetch_offers(c["store_id"], c["namn"], kanal="offline")
+        except Exception as e:
+            if varningar is None:
+                raise
+            varningar.append(f"Kunde inte hämta kampanjer från {c['namn']}: {e}")
     for s in stores.get("ica", []):
         try:
             offers += ica.fetch_offers(s["erbjudande_slug"], s["namn"])
@@ -366,14 +420,15 @@ def fetch_all_offers(cfg: dict, varningar: list[str] | None = None) -> list[Offe
 
 @contextmanager
 def _willys_session(cfg: dict, log, varningar: list[str]):
-    """En anonym Willys-session per körning med rätt butik vald – sortimentet styrs av sessionens butik.
-    Butiken väljs först, innan något Claude-anrop görs."""
-    with willys.WillysSession(cfg["butiker"]["willys"]["store_id"]) as sess:
-        log("Väljer Willys-butik…")
+    """En anonym session per körning i e-handelskedjan med rätt butik vald – sortimentet styrs av
+    sessionens butik. Butiken väljs först, innan något Claude-anrop görs."""
+    kedja = kedjemodul(cfg)
+    with kedja.session(e_handel_butik(cfg)["store_id"]) as sess:
+        log(f"Väljer {kedja.KEDJA.namn}-butik…")
         try:
             sess.valj_butik()
         except Exception as e:
-            varningar.append(f"Kunde inte välja butik, sökningen gäller hela Willys sortiment ({e})")
+            varningar.append(f"Kunde inte välja butik, sökningen gäller hela {genitiv(kedja.KEDJA.namn)} sortiment ({e})")
             log(f"  VARNING: {varningar[-1]}")
         yield sess
 
@@ -405,17 +460,18 @@ def kampanjerna_ar_farska(offers: list[Offer], idag: dt.date) -> bool:
 def kontrollera_farska_kampanjer(cfg: dict, offers: list[Offer], idag: dt.date | None = None) -> None:
     """Avbryt innan Claude anropas om veckans kampanjer inte är uppe än."""
     idag = idag or dt.date.today()
-    w = cfg["butiker"]["willys"]
+    w = e_handel_butik(cfg)
     if not any(o.start for o in offers):
         # Butikskampanjerna hämtas inte (i_butik: false) – hämta dem bara för kontrollen
-        offers = willys.fetch_offers(w["store_id"], willys_i_butik_namn(cfg), kanal="offline")
+        offers = kedjemodul(cfg).fetch_offers(w["store_id"], willys_i_butik_namn(cfg), kanal="offline")
     if not kampanjerna_ar_farska(offers, idag):
         raise KampanjerInteUppe("Veckans kampanjer är inte uppe än")
 
 
 def _planner(cfg: dict) -> Planner:
     c = cfg["claude"]
-    return Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"])
+    return Planner(c.get("model_meny") or c["model"], c.get("model_produkter") or c["model"],
+                   kedjemodul(cfg).KEDJA.namn, [b["namn"] for _, b in jamforelsekedjor(cfg)])
 
 
 def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = True) -> tuple[list[Offer], dict[str, int]]:
@@ -447,7 +503,7 @@ def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = 
     return offers, counts
 
 
-def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
+def _run(cfg: dict, sess: AxfoodSession, fill_cart: bool, log, varningar: list[str] | None = None) -> Result:
     matlador(cfg["hushall"])  # fel i configen syns innan något anrop görs
     planner = _planner(cfg)
     varningar = varningar if varningar is not None else []
@@ -462,7 +518,7 @@ def _run(cfg: dict, sess: willys.WillysSession, fill_cart: bool, log, varningar:
 
 def _handla(
     cfg: dict,
-    sess: willys.WillysSession,
+    sess: AxfoodSession,
     planner: Planner,
     plan: Veckoplan,
     offers: list[Offer],
@@ -474,7 +530,9 @@ def _handla(
 ) -> Result:
     """Från inköpslista till korg: sökning, produktval, reserver, tillgänglighet, ingredienser, storpack,
     lager, butiksflaggor, korgfil och (ev.) varukorgen. Gemensamt för auto- och valläget."""
-    willys_name = cfg["butiker"]["willys"]["namn"]
+    willys_name = e_handel_butik(cfg)["namn"]
+    kedja = kedjemodul(cfg)
+    kedjenamn = kedja.KEDJA.namn
     sparrord = [w.lower() for w in cfg["hushall"].get("sparrord", [])]
     rows = list(plan.inkopslista) + [
         Inkopsrad(vara=a["namn"], behov=f"{a['antal']} st", sokord=a["namn"], till=["basvara"])
@@ -482,8 +540,8 @@ def _handla(
     ]
 
     # Utan vald butik söks hela sortimentet; reserver och failed-hanteringen tar hand om det som saknas
-    sok = sess.search if sess.butik_vald else willys.search
-    log(f"Söker {len(rows)} varor i Willys sortiment{'' if sess.butik_vald else ' (utan vald butik)'}…")
+    sok = sess.search if sess.butik_vald else kedja.search
+    log(f"Söker {len(rows)} varor i {genitiv(kedjenamn)} sortiment{'' if sess.butik_vald else ' (utan vald butik)'}…")
     candidates: list[list[Product]] = []
     misslyckade = 0
     senaste_fel: Exception | None = None
@@ -501,7 +559,7 @@ def _handla(
         time.sleep(0.5)
     if rows and misslyckade == len(rows):
         raise AllaSokningarMisslyckades(
-            f"Alla {len(rows)} sökningar mot Willys misslyckades – avbryter innan produktvalet. "
+            f"Alla {len(rows)} sökningar mot {kedjenamn} misslyckades – avbryter innan produktvalet. "
             f"Senaste fel: {senaste_fel}"
         )
 
@@ -512,7 +570,7 @@ def _handla(
     choice = planner.choose_products(rows, candidates, butiks_offers, cfg["hushall"].get("undvik", []), gar_alltid_at)
 
     i_butik_namn = willys_i_butik_namn(cfg)
-    i_butik_offers = {o.code: o for o in butiks_offers if o.store == i_butik_namn and o.code}
+    axfood = axfood_butiker(cfg)
     by_row = {v.rad: v for v in choice.val}
     lines: list[Line] = []
     for i, r in enumerate(rows):
@@ -524,8 +582,8 @@ def _handla(
             )
             log(f"  VARNING: {varningar[-1]}")
             v.butik = None
-        if v and v.butik == i_butik_namn:
-            berakna_butikskostnad(v, i_butik_offers)
+        if v and v.butik in axfood:  # Axfood-kampanjer går att räkna i koden
+            berakna_butikskostnad(v, {o.code: o for o in butiks_offers if o.store == v.butik and o.code})
         alt = provningsordning(v, candidates[i])
         prod, qty = (alt[0].product, alt[0].qty) if alt else (None, 0)
         lines.append(
@@ -535,6 +593,7 @@ def _handla(
 
     result = Result(week=week, plan=plan, lines=lines, offers_count=counts, varningar=varningar,
                     willys_namn=willys_name, willys_i_butik_namn=i_butik_namn,
+                    kedja=kedjenamn, kedja_url=f"{kedja.BASE}/",
                     prismarkerade=[o for o in offers if o.prisnotis],
                     matlador={m.dag: e for m in plan.middagar if (e := matlador_for(m.dag, cfg["hushall"]))})
 
@@ -547,7 +606,7 @@ def _handla(
         # Butiksalternativen går genom samma fläskskydd som korgen
         if ingr_ord:
             kampanjer = {(o.store, o.code): o for o in butiks_offers if o.code}
-            kontrollera_butiksrader(lines, i_butik_namn, kampanjer, ik, log)
+            kontrollera_butiksrader(lines, axfood, kampanjer, ik, log)
 
         # Varor som alltid går åt: räcker det uppskattade lagret från tidigare veckors korgar köps de inte
         korgar = lager.senaste_korgar(DATA, result.week) if any(p.per_vecka for p in gar_poster) else []
@@ -612,12 +671,12 @@ def _handla(
         from .cart import NotLoggedIn
 
         try:
-            result.cart = fill_saved_cart(result.week, log)
+            result.cart = fill_saved_cart(result.week, log, e_handel(cfg))
         except NotLoggedIn as e:
             # Rapporten och mejlet ska ändå komma fram – korgen kan fyllas i efterhand
             log(str(e))
             result.cart_error = (
-                "Willys-inloggningen har gått ut. Kör `python -m veckohandla login` och sedan "
+                f"{kedjenamn}-inloggningen har gått ut. Kör `python -m veckohandla login` och sedan "
                 f"`python -m veckohandla fyll-varukorg {result.week}`."
             )
     return result
@@ -657,7 +716,7 @@ class Produktsidor:
 
     PAUS_S = 0.5
 
-    def __init__(self, sess: willys.WillysSession, ik: ingredienser.Ingredienskontroll):
+    def __init__(self, sess: AxfoodSession, ik: ingredienser.Ingredienskontroll):
         self.sess, self.ik = sess, ik
         self._svar: dict[str, tuple[bool | None, dict | None]] = {}
 
@@ -666,7 +725,7 @@ class Produktsidor:
             self._svar[code] = finns, d = self.sess.kolla(code)
             if d is not None:
                 self.ik.lagg_in(code, d)
-            time.sleep(self.PAUS_S)  # var snäll mot Willys
+            time.sleep(self.PAUS_S)  # var snäll mot butikens server
         return self._svar[code]
 
     def finns(self, code: str) -> bool | None:
@@ -693,13 +752,14 @@ def latest_cart_week() -> str:
     return files[-1].stem.removesuffix("-korg")
 
 
-def fill_saved_cart(week: str, log=print) -> dict:
-    """Lägg en sparad veckas inköpslista i Willys-varukorgen (utan att planera om)."""
-    from .cart import fill_willys
+def fill_saved_cart(week: str, log=print, kedja: str = "willys") -> dict:
+    """Lägg en sparad veckas inköpslista i e-handelskedjans varukorg (utan att planera om)."""
+    from .cart import fill_axfood
 
+    k = KEDJOR[kedja].KEDJA
     saved = json.loads((DATA / f"{week}-korg.json").read_text())
-    log(f"Lägger {len(saved)} varor i Willys-varukorgen…")
-    return fill_willys([_cartline(x) for x in saved])
+    log(f"Lägger {len(saved)} varor i {k.namn}-varukorgen…")
+    return fill_axfood([_cartline(x) for x in saved], k.nyckel, k.namn, k.base)
 
 
 def _cartline(x: dict):
@@ -716,6 +776,7 @@ class Forslagsresultat:
     week: str
     forslag: Veckoforslag
     middagar_per_vecka: int
+    kedja: str = "Willys"  # e-handelskedjan där korgen fylls
     offers_count: dict[str, int] = field(default_factory=dict)
     varningar: list[str] = field(default_factory=list)
     kostnad: dict | None = None
@@ -762,6 +823,7 @@ def foresla(cfg: dict, log=print) -> Forslagsresultat:
     for i, r in enumerate(forslag.ratter, 1):
         log(f"  {i:>2}. {r.ratt}")
     res = Forslagsresultat(week=week_id(), forslag=forslag, middagar_per_vecka=cfg["hushall"]["middagar_per_vecka"],
+                           kedja=kedjemodul(cfg).KEDJA.namn,
                            offers_count=counts, varningar=varningar, prismarkerade=[o for o in offers if o.prisnotis])
     DATA.mkdir(exist_ok=True)
     forslag_fil(res.week).write_text(forslag.model_dump_json(indent=2))

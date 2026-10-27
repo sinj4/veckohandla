@@ -22,14 +22,14 @@ MIN_VECKOR = 3
 BRA_GRANS = 0.15  # minst 15 % under medianen
 VANLIGT_GRANS = 0.05  # inom 5 % av medianen
 
-_WILLYS_KOD = re.compile(r"_(ST|KG)$")
+_AXFOOD_KOD = re.compile(r"_(ST|KG)$")
 _ICA_FOR = re.compile(r"^\s*(\d+)\s*för\s*(\d+(?:[,.]\d+)?)\s*kr\b", re.IGNORECASE)
 _ICA_ST = re.compile(r"^\s*(\d+(?:[,.]\d+)?)\s*kr/st\b", re.IGNORECASE)
 
 
 def produktkod(o: Offer) -> str:
-    """Willys produktkod. ICA:s kod är ett erbjudande-id som byts varje vecka och räknas inte."""
-    return o.code if _WILLYS_KOD.search(o.code) else ""
+    """Axfood-produktkod (Willys, Hemköp – samma koder). ICA:s kod är ett erbjudande-id som byts varje vecka och räknas inte."""
+    return o.code if _AXFOOD_KOD.search(o.code) else ""
 
 
 def nyckel(butik: str, kod: str, namn: str, varumarke: str) -> str:

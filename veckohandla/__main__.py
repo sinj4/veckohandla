@@ -1,10 +1,11 @@
 """Kommandon:
 
   python -m veckohandla hitta-willys ORT    # hitta store_id för din Willys
+  python -m veckohandla hitta-hemkop ORT    # hitta store_id för ditt Hemköp
   python -m veckohandla erbjudanden        # visa veckans kampanjer (ingen Claude, ingen inloggning)
-  python -m veckohandla login              # logga in på Willys en gång (sparas i browser-profiles/)
+  python -m veckohandla login              # logga in en gång hos e-handelskedjan (browser-profiles/<kedja>)
   python -m veckohandla kor [--fyll-varukorg] [--ingen-mejl]   # exit 3: kampanjer inte uppe, 4: mejlet skickades inte
-  python -m veckohandla fyll-varukorg [VECKA]   # lägg senaste (eller angiven) veckas lista i Willys-korgen
+  python -m veckohandla fyll-varukorg [VECKA]   # lägg senaste (eller angiven) veckas lista i korgen (butiker.e_handel)
 
 Valläget (meny.lage: val i config): kor tar fram förslag i stället för en färdig meny.
   python -m veckohandla forslag [VECKA]        # visa förslagen med nummer
@@ -53,14 +54,15 @@ def main() -> int:
     load_env()
     ap = argparse.ArgumentParser(prog="veckohandla")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    h = sub.add_parser("hitta-willys")
-    h.add_argument("ort")
+    for kedja in ("willys", "hemkop"):
+        h = sub.add_parser(f"hitta-{kedja}")
+        h.add_argument("ort")
     sub.add_parser("erbjudanden")
     sub.add_parser("login")
     f = sub.add_parser("fyll-varukorg")
     f.add_argument("vecka", nargs="?", help="t.ex. 2026-v42 (standard: senaste)")
     k = sub.add_parser("kor")
-    k.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i Willys-varukorgen (ingen beställning)")
+    k.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i varukorgen (ingen beställning)")
     k.add_argument("--ingen-mejl", action="store_true")
     k.add_argument("--en-gang-per-vecka", action="store_true",
                    help="avsluta direkt om veckans plan redan finns (för schemalagda körningar)")
@@ -70,15 +72,16 @@ def main() -> int:
     v = sub.add_parser("valj", help="välj bland förslagen och gör veckans inköp (valläget)")
     v.add_argument("nummer", nargs="+", help="förslagens nummer i den ordning de ska ätas (första = måndag)")
     v.add_argument("--vecka", help="t.ex. 2026-v43 (standard: senaste förslagen)")
-    v.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i Willys-varukorgen (ingen beställning)")
+    v.add_argument("--fyll-varukorg", action="store_true", help="lägg varorna i varukorgen (ingen beställning)")
     v.add_argument("--ingen-mejl", action="store_true")
     b = sub.add_parser("betyg", help="sätt + eller − på förra (eller angiven) veckans rätter")
     b.add_argument("--vecka", help="t.ex. 2026-v43 (standard: förra veckan)")
     args = ap.parse_args()
 
-    if args.cmd == "hitta-willys":
-        from .stores.willys import find_stores
+    if args.cmd in ("hitta-willys", "hitta-hemkop"):
+        from .stores import hemkop, willys
 
+        find_stores = (willys if args.cmd == "hitta-willys" else hemkop).find_stores
         for s in find_stores(args.ort):
             town = (s.get("address") or {}).get("town") or "?"
             print(f"{s.get('storeId', '?'):>6}  {s.get('name', '?')}  ({town})  e-handel/hämtning: {'ja' if s.get('clickAndCollect') else 'nej'}")
@@ -103,9 +106,12 @@ def main() -> int:
         return satt_betyg(args.vecka)
 
     if args.cmd == "login":
-        from .browser import login_willys
+        from .browser import login_axfood
+        from .pipeline import kedjemodul
 
-        print(f"Inloggad på Willys som {login_willys()}. Sessionen är sparad.")
+        k = kedjemodul(cfg).KEDJA
+        print(f"Inloggad på {k.namn} som {login_axfood(k.nyckel, k.namn, k.base)}. "
+              f"Sessionen är sparad i browser-profiles/{k.nyckel}.")
         return 0
 
     from .cart import NotLoggedIn
@@ -114,25 +120,26 @@ def main() -> int:
     print(f"\n=== veckohandla {args.cmd} startar {dt.datetime.now():%Y-%m-%d %H:%M:%S} ===", flush=True)
 
     if args.cmd == "fyll-varukorg":
-        from .pipeline import IngenKorg, fill_saved_cart, latest_cart_week
+        from .pipeline import IngenKorg, e_handel, fill_saved_cart, kedjemodul, latest_cart_week
 
+        kedjenamn = kedjemodul(cfg).KEDJA.namn
         try:
             week = args.vecka or latest_cart_week()
         except IngenKorg as e:
             print(e, file=sys.stderr)
             return 1
         try:
-            res = fill_saved_cart(week)
+            res = fill_saved_cart(week, kedja=e_handel(cfg))
         except NotLoggedIn as e:
             print(e, file=sys.stderr)
             return 2
-        print(f"Lade till {res['tillagda']} varor, {res['redan_klara']} fanns redan. Willys-korgen totalt: {res['total']}")
+        print(f"Lade till {res['tillagda']} varor, {res['redan_klara']} fanns redan. {kedjenamn}-korgen totalt: {res['total']}")
         if res["annan_enhet"]:
             print(f"Finns redan i annan enhet (rörs inte): {', '.join(res['annan_enhet'])}")
         for b in res.get("byten", []):
             print(f"Bytt till reserv: {b}")
         if res["failed"]:
-            print(f"Willys nekade (ingen reserv fungerade): {', '.join(res['failed'])}")
+            print(f"{kedjenamn} nekade (ingen reserv fungerade): {', '.join(res['failed'])}")
         if res["missing"]:
             print(f"För få i korgen efteråt: {', '.join(res['missing'])}")
         return 0
@@ -283,7 +290,7 @@ def _veckorapport(cfg: dict, res, args) -> int:
     out = pipeline.DATA / f"{res.week}.html"
     out.write_text(page)
     print(f"Rapport: {out}")
-    print(f"Willys-korgen: {res.willys_total:.2f} kr"
+    print(f"{res.kedja}-korgen: {res.willys_total:.2f} kr"
           + (f", med flaggade butiksalternativ: {res.med_butiksalternativ:.2f} kr" if res.butik_besparing else ""))
 
     mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckomeny {res.week}", page, out)

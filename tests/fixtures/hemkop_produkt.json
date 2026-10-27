@@ -1,0 +1,260 @@
+{
+ "breadcrumbs": [
+  {
+   "url": "/alla-varor/c/",
+   "name": "Alla varor",
+   "linkClass": null,
+   "categoryCode": "N00"
+  },
+  {
+   "url": "kott-fagel-och-chark",
+   "name": "Kött, fågel & chark",
+   "linkClass": null,
+   "categoryCode": "N01"
+  },
+  {
+   "url": "kott-fagel-och-chark/fagel-",
+   "name": "Fågel ",
+   "linkClass": null,
+   "categoryCode": "N0104"
+  },
+  {
+   "url": "kott-fagel-och-chark/fagel-/fryst-fagel",
+   "name": "Fryst fågel",
+   "linkClass": null,
+   "categoryCode": "N010401"
+  },
+  {
+   "url": "/produkt/Kycklingfile-Svensk-Fryst-101222270_ST",
+   "name": "Kycklingfilé Svensk Fryst",
+   "linkClass": "active",
+   "categoryCode": null
+  }
+ ],
+ "labels": [
+  "swedish_flag",
+  "swedish_bird"
+ ],
+ "potentialPromotions": [],
+ "inactivePotentialPromotions": [],
+ "contacts": [],
+ "extendedLabels": [
+  {
+   "code": "Z60",
+   "name": "Svensk Fågel",
+   "description": "Svensk Fågel",
+   "imgUrl": "https://www.hemkop.se/medias/Z60-26p.png?context=bWFzdGVyfHJvb3R8MTU0MnxpbWFnZS9wbmd8YzNsekxXMWhjM1JsY2k5eWIyOTBMMmcwTUM5b01Ea3ZPRGd3TVRBM05UYzRPVGcxTkM5YU5qQmZNalp3TG5CdVp3fGVlM2I5ZjE0OWFlYzcxMzkyMmI3ZDYxMTE1YTNjNzU2OGVkM2RhOWU1ZWQ5ZjEzYjYyMzU4Mjk1NGUwZmI1ZjU",
+   "thumbnailUrl": "https://www.hemkop.se/medias/Z60-22p.png?context=bWFzdGVyfHJvb3R8MTI1M3xpbWFnZS9wbmd8YzNsekxXMWhjM1JsY2k5eWIyOTBMMmc1Tmk5b01Ea3ZPRGd3TVRBM05UYzFOekE0Tmk5YU5qQmZNakp3TG5CdVp3fDc2MTM3NWYwOWNhMmYzODY0YmNmZjFjYzE1YmNlZWVlYzczZTM3ODg3ZjlkODE2NTQzYzExYzVmZDU1NTBhZGU"
+  }
+ ],
+ "breadCrumbs": [
+  {
+   "url": "/alla-varor/c/",
+   "name": "Alla varor",
+   "linkClass": null,
+   "categoryCode": "N00"
+  },
+  {
+   "url": "kott-fagel-och-chark",
+   "name": "Kött, fågel & chark",
+   "linkClass": null,
+   "categoryCode": "N01"
+  },
+  {
+   "url": "kott-fagel-och-chark/fagel-",
+   "name": "Fågel ",
+   "linkClass": null,
+   "categoryCode": "N0104"
+  },
+  {
+   "url": "kott-fagel-och-chark/fagel-/fryst-fagel",
+   "name": "Fryst fågel",
+   "linkClass": null,
+   "categoryCode": "N010401"
+  },
+  {
+   "url": "/produkt/Kycklingfile-Svensk-Fryst-101222270_ST",
+   "name": "Kycklingfilé Svensk Fryst",
+   "linkClass": "active",
+   "categoryCode": null
+  }
+ ],
+ "maxStorageTemperature": "-18°C",
+ "foodContactAddress": "konsument@axfood.se Tel 0771-87 67 70",
+ "foodContactName": "Axfood AB",
+ "ean": "7340083434716",
+ "variantType": "",
+ "isDrugProduct": false,
+ "extraInfoCode": "",
+ "activeSubstance": "",
+ "originCountry": "",
+ "saleStop": null,
+ "medicineLink": "",
+ "categoryGroupText": "",
+ "ingredients": "INGREDIENSER: Kycklingbröstfilé 87%, saltlake (vatten, salt). Köttursprung: Sverige.",
+ "nutritionFacts": "",
+ "salableOnline": true,
+ "tradeItemCountryOfOrigin": "Sverige",
+ "preparationDescription": "Garant Kycklingbröstfilé kan tillagas direkt från frysen eller efter upptining. För bästa resultat rekommenderar vi att de tillagas efter långsam upptining i kylskåp, ca 12 timmar. Tinad produkt bör t",
+ "compulsoryAdditiveLabelInformation": "",
+ "consumerStorageInstructions": "Djupfryst vara, förvaras vid -18°C eller lägre. Bör inte frysas igen efter upptining.",
+ "nutrientHeaders": [
+  {
+   "preparationStateCode": null,
+   "dailyValueIntakeReference": "",
+   "servingSizeDescription": "",
+   "servingSize": "",
+   "servingsSizeMeasurementUnitCode": "",
+   "nutrientBasisQuantity": "100",
+   "nutrientBasisQuantityMeasurementUnitCode": "gram",
+   "nutrientBasisQuantityTypeCode": "BY_MEASURE",
+   "driPercentageAvailable": false,
+   "nutrientDetails": [
+    {
+     "nutrientTypeCode": "energi",
+     "quantityContained": "430",
+     "measurementUnitCode": "kilojoule",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "energi",
+     "quantityContained": "100",
+     "measurementUnitCode": "kilokalori",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "fett",
+     "quantityContained": "2",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "varav mättat fett",
+     "quantityContained": "0.7",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "kolhydrat",
+     "quantityContained": "0.5",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "<",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "varav sockerarter",
+     "quantityContained": "0.5",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "<",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "protein",
+     "quantityContained": "21",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    },
+    {
+     "nutrientTypeCode": "salt",
+     "quantityContained": "0.7",
+     "measurementUnitCode": "gram",
+     "measurementPrecisionCode": "CA",
+     "dailyValueIntakePercent": null
+    }
+   ]
+  }
+ ],
+ "animalData": null,
+ "dietTypeInformation": "",
+ "batteryInformation": [],
+ "nutritionalClaim": "",
+ "healthClaimDescription": "",
+ "preparationType": "Steka",
+ "regulatoryAct": "",
+ "servingSize": null,
+ "instructions": "",
+ "countryOfOriginStatement": "",
+ "areBatteriesIncluded": false,
+ "consumerUsageInstructions": "",
+ "areBatteriesRequired": false,
+ "provinceStatement": "Köttursprung: Sverige.",
+ "nutritionDescription": "100 gram",
+ "googleAnalyticsCategory": "fryst|kott-och-kyckling|kyckling-och-ovrig-fagel",
+ "nutrientComponents": [],
+ "minStorageTemperature": "-25°C",
+ "nutritionsFactList": [
+  {
+   "value": "430",
+   "typeCode": "energi",
+   "unitCode": "kilojoule",
+   "measurementPrecisionCode": ""
+  }
+ ],
+ "image": {
+  "imageType": "PRIMARY",
+  "format": "zoom",
+  "url": "https://assets.axfood.se/image/upload/f_auto,t_500/07340083434716_C1C1_s03",
+  "altText": "Kycklingfilé Svensk Fryst 1kg Garant",
+  "galleryIndex": null,
+  "width": null
+ },
+ "medicineType": "",
+ "fruitAndVegetableVariety": "",
+ "otherCountries": [],
+ "description": "Djupfryst bröstfilé av svensk kyckling. Mörad. 1 kg.",
+ "precautionaryStatements": [],
+ "tobaccoFreeNicotineProduct": false,
+ "nicotineMedicalProduct": false,
+ "showGoodPriceIcon": false,
+ "tobaccoProduct": false,
+ "priceValue": 92.95,
+ "comparePrice": "92,95 kr",
+ "averageWeight": null,
+ "depositPrice": "",
+ "solrSearchScore": null,
+ "energyDeclaration": null,
+ "comparePriceUnit": "kg",
+ "newsSplashProduct": false,
+ "notAllowedAnonymous": false,
+ "notAllowedB2b": false,
+ "gdprTrackingIncompliant": false,
+ "savingsAmount": null,
+ "priceNoUnit": "92,95",
+ "pickupProductLine2": "GARANT, 1kg",
+ "priceUnit": "kr/st",
+ "productLine2": "GARANT, 1kg",
+ "nonEkoProduct": false,
+ "hazards": [],
+ "price": "92,95 kr",
+ "ranking": null,
+ "addToCartDisabled": false,
+ "thumbnail": {
+  "imageType": "PRIMARY",
+  "format": "zoom",
+  "url": "https://assets.axfood.se/image/upload/f_auto,t_500/07340083434716_C1C1_s03",
+  "altText": "Kycklingfilé Svensk Fryst 1kg Garant",
+  "galleryIndex": null,
+  "width": null
+ },
+ "maxOrderQuantity": null,
+ "incrementValue": 1.0,
+ "bargainProduct": false,
+ "addToCartMessage": "",
+ "manufacturer": "Garant",
+ "online": true,
+ "displayVolume": "1kg",
+ "outOfStock": false,
+ "seoDescription": "",
+ "seoTitle": "",
+ "productBasketType": {
+  "code": "ST",
+  "type": "ProductBasketTypeEnum"
+ },
+ "code": "101222270_ST",
+ "name": "Kycklingfilé Svensk Fryst"
+}

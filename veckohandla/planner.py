@@ -192,11 +192,16 @@ def _dagar(n: int) -> str:
     return f"Välj själv vilka {n} veckodagar middagarna gäller."
 
 
-KAMPANJTYPER = """Det finns tre sorters kampanjer:
-- Willys e-handel: läggs direkt i varukorgen. Huvudkällan – allt som går ska finnas här.
-- Willys i butik: gäller bara i Willys-butiken. E-handelns motsvarighet läggs ändå i korgen; den
+def _andra_butiker(jamforelse: list[str]) -> str:
+    return "ICA-butiker" if not jamforelse else f"ICA-butiker och {', '.join(jamforelse)}"
+
+
+def _kampanjtyper(kedja: str, jamforelse: list[str]) -> str:
+    return f"""Det finns tre sorters kampanjer:
+- {kedja} e-handel: läggs direkt i varukorgen. Huvudkällan – allt som går ska finnas här.
+- {kedja} i butik: gäller bara i {kedja}-butiken. E-handelns motsvarighet läggs ändå i korgen; den
   billigare butikskampanjen visas som tips (t.ex. vid hämtning av ordern).
-- ICA-butiker: kräver en egen resa och visas också bara som tips när de är klart billigare."""
+- {_andra_butiker(jamforelse)}: kräver en egen resa och visas också bara som tips när de är klart billigare."""
 
 INKOPSREGEL = """Inköpslistan ska summera hela veckans behov per vara, utan skafferivaror. Markera kanske_hemma för
 basvaror som de flesta har hemma (t.ex. ketchup, senap, soja) men som inte står i skafferilistan."""
@@ -281,9 +286,16 @@ STEG = {"Veckoplan": "meny", "Veckoforslag": "meny", "Produktval": "produktval",
 class Planner:
     """Anropar Claude via API-nyckel om ANTHROPIC_API_KEY finns, annars via Claude Code (Pro-inloggning)."""
 
-    def __init__(self, model_meny: str, model_produkter: str | None = None):
+    kedja: str = "Willys"
+    jamforelse: list[str] | tuple[str, ...] = ()
+
+    def __init__(
+        self, model_meny: str, model_produkter: str | None = None, kedja: str = "Willys", jamforelse: list[str] | None = None
+    ):
         self.model_meny = model_meny
         self.model_produkter = model_produkter or model_meny
+        self.kedja = kedja  # e-handelskedjan (Willys eller Hemköp)
+        self.jamforelse = jamforelse or ()  # andra Axfood-butiker som bara jämförs, t.ex. "Hemköp Trosa"
         self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
         self._claude: tuple[str, str] | None = None  # (sökväg, version), loggas vid första anropet
         self.forbrukning: dict[str, Forbrukning] = {}  # steg -> summerad förbrukning
@@ -375,7 +387,7 @@ class Planner:
 {_hushallsrader(cfg, previous_dishes, smak)}
 
 {_kampanjgrund(h)}
-{KAMPANJTYPER} Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
+{_kampanjtyper(self.kedja, self.jamforelse)} Utnyttja samma ingredienser i flera rätter för att minska svinn, och tänk på mängder (t.ex. en 1 kg-förpackning
 räcker till två middagar).
 
 {INKOPSREGEL}
@@ -400,7 +412,7 @@ Ange ingredienserna med mängd för {h['portioner_per_middag']} portioner.
 {_hushallsrader(cfg, previous_dishes, smak)}
 
 {_kampanjgrund(h)}
-{KAMPANJTYPER}
+{_kampanjtyper(self.kedja, self.jamforelse)}
 
 # Veckans kampanjer
 {_offers_block(offers)}
@@ -445,7 +457,7 @@ Ange i `till` vilka middagar (dag) varan används till.
         gar_alltid_at: list[str] | None = None,
     ) -> Produktval:
         system = (
-            "Du matchar inköpsrader mot produkter i Willys e-handel och väljer billigaste rimliga "
+            f"Du matchar inköpsrader mot produkter i {self.kedja} e-handel och väljer billigaste rimliga "
             "alternativ med hänsyn till kampanjer, förpackningsstorlek och behov. Svara på svenska."
         )
         blocks = []
@@ -454,7 +466,9 @@ Ange i `till` vilka middagar (dag) varan används till.
             storpack = " – GÅR ALLTID ÅT: ta med storpack" if gar_alltid_at_rad(row, gar_alltid_at or []) else ""
             blocks.append(f"[{i}] {row.vara} – behov {row.behov} – till: {', '.join(row.till)}{storpack}\n{c}")
         butikskampanjer = "\n".join(f"- {o.store}: {f'[{o.code}] ' if o.code else ''}{o.short()}" for o in butiks_offers)
-        prompt = f"""Välj för varje inköpsrad den Willys-produkt (kod) och det antal som täcker behovet billigast.
+        k = self.kedja
+        axfood_i_butik = f'"{k} … (i butik)"' + "".join(f' och "{n}"' for n in self.jamforelse)
+        prompt = f"""Välj för varje inköpsrad den {k}-produkt (kod) och det antal som täcker behovet billigast.
 - Antal: priset i listan gäller per förpackning, eller per styck för lösvikt märkt "per st" (vikten
   "ca: 2kg" är vikten per styck – 1 vitkålshuvud á 2 kg räcker till 750 g, 8 bananer = antal 8).
 - Föredra kampanjvaror och jämförpris, men välj inte fel sorts vara.
@@ -472,18 +486,18 @@ Ange i `till` vilka middagar (dag) varan används till.
   storlekar av samma vara bland huvudval och reserver, även förpackningar som är större än behovet
   (tak ungefär 30 st eller 2 kg per förpackning). Antal: så få förpackningar som täcker behovet,
   normalt 1. Koden väljer sedan den med lägst jämförpris.
-- Välj ALLTID en Willys-produkt (willys_kod) när det finns en godtagbar kandidat, även när en
+- Välj ALLTID en {k}-produkt (willys_kod) när det finns en godtagbar kandidat, även när en
   butikskampanj är billigare. Korgen ska vara komplett; butikskampanjen visas bara som ett tips.
 - Butikskampanjerna nedan går inte att lägga i e-handelskorgen. Om en av dem är billigare för samma
   behov: ange dessutom butik (exakt butiksnamn), butik_kod (kampanjens kod i hakparentes – den måste
   höra till samma butik), butik_erbjudande, butik_antal (minst 1) och uppskattad butik_kostnad_kr. För
-  "Willys … (i butik)" räknar koden själv kostnaden ur kampanjen. Ett butiksval utan giltig kod
+  {axfood_i_butik} räknar koden själv kostnaden ur kampanjen. Ett butiksval utan giltig kod
   ignoreras.
 
-# Inköpsrader med Willys-kandidater
+# Inköpsrader med {k}-kandidater
 {chr(10).join(blocks)}
 
-# Butikskampanjer (ICA-butiker och Willys i butik – inte i e-handeln)
+# Butikskampanjer ({_andra_butiker(self.jamforelse)} och {k} i butik – inte i e-handeln)
 {butikskampanjer}
 """
         return self._parse(prompt, Produktval, system, effort="medium", model=self.model_produkter)

@@ -1,4 +1,4 @@
-"""Fyll Willys-varukorgen via webbplatsens egna cart-API i en inloggad webbläsarprofil.
+"""Fyll varukorgen hos Willys eller Hemköp via webbplatsens egna cart-API i en inloggad webbläsarprofil.
 
 Boten lägger bara till det som fattas – den tar aldrig bort något ur korgen och lägger aldrig någon order.
 Att köra fyllningen flera gånger ger därför inte dubbla mängder.
@@ -14,7 +14,7 @@ from .browser import store_browser
 
 _CART_JS = "async () => (await fetch('/axfood/rest/cart')).json()"
 
-# En vara per anrop: skickas en ogiltig vara i samma anrop tappar Willys även giltiga varor
+# En vara per anrop: skickas en ogiltig vara i samma anrop tappar Axfood-API:t även giltiga varor
 _ADD_JS = """async (products) => {
   const tok = JSON.parse(await (await fetch('/axfood/rest/csrf-token')).text());
   const failed = [];
@@ -154,14 +154,19 @@ def fyll_korg(
     return sammanfatta(effektiva, diff, failed, cart, by_code) | {"byten": byten}
 
 
-def fill_willys(lines: list[CartLine]) -> dict:
-    with store_browser("willys") as ctx:
+def fill_axfood(lines: list[CartLine], nyckel: str, namn: str, base: str) -> dict:
+    """Fyll korgen i kedjans webbläsarprofil (browser-profiles/<nyckel>), t.ex. willys eller hemkop."""
+    with store_browser(nyckel) as ctx:
         page = ctx.new_page()
-        page.goto("https://www.willys.se/", wait_until="domcontentloaded")
+        page.goto(f"{base}/", wait_until="domcontentloaded")
         customer = page.evaluate("async () => (await fetch('/axfood/rest/customer')).json()")
         if customer.get("uid") in (None, "anonymous"):
-            raise NotLoggedIn("Inte inloggad på Willys – kör: python -m veckohandla login")
+            raise NotLoggedIn(f"Inte inloggad på {namn} – kör: python -m veckohandla login")
         return fyll_korg(lines, lambda: page.evaluate(_CART_JS), lambda payload: page.evaluate(_ADD_JS, payload))
+
+
+def fill_willys(lines: list[CartLine]) -> dict:
+    return fill_axfood(lines, "willys", "Willys", "https://www.willys.se")
 
 
 def sammanfatta(

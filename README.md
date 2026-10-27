@@ -32,8 +32,9 @@ cp config.example.yaml config.yaml   # anpassa hushåll, önskemål och butiker
 cp .env.example .env                 # valfritt: API-nyckel och SMTP-lösenord
 
 .venv/bin/python -m veckohandla hitta-willys <ort>   # hitta store_id för din Willys
+.venv/bin/python -m veckohandla hitta-hemkop <ort>   # … eller för ditt Hemköp
 .venv/bin/python -m veckohandla erbjudanden          # kontrollera att kampanjerna hämtas
-.venv/bin/python -m veckohandla login                # logga in på Willys en gång
+.venv/bin/python -m veckohandla login                # logga in en gång hos kedjan i butiker.e_handel
 .venv/bin/python -m veckohandla kor --ingen-mejl     # testkörning, rapporten hamnar i data/
 .venv/bin/python -m veckohandla fyll-varukorg        # lägg den granskade listan i Willys-korgen
 ```
@@ -71,6 +72,9 @@ launchctl kickstart -k gui/$(id -u)/se.veckohandla
 tail -f data/senaste-korning.log     # varje körning börjar med en rad med datum och tid
 ```
 På Linux fungerar en cron-rad som kör `.venv/bin/python -m veckohandla kor --fyll-varukorg` från projektkatalogen.
+
+### Willys eller Hemköp
+Hemköp ägs av Axfood, precis som Willys, och har samma API. `butiker.e_handel` (`willys` eller `hemkop`, standard `willys`) väljer kedjan där varor söks och korgen fylls. Den andra kedjan kan stå med i `butiker` för jämförelse: dess butikskampanjer hämtas, kostnaden räknas ur kampanjen, och billigare varor flaggas i rapporten precis som för ICA. Samma ingredienskontroll gäller, eftersom produktkoderna är gemensamma, och prishistoriken sparas för båda kedjorna. Inloggningen sparas per kedja (`browser-profiles/willys`, `browser-profiles/hemkop`), så `login` och `fyll-varukorg` gäller kedjan i `e_handel`. Korgen hos Hemköp är byggd på samma API som Willys men inte provad mot ett riktigt konto.
 
 ## Konfiguration
 
@@ -126,19 +130,21 @@ claude:
 
 | Del | Källa |
 |---|---|
-| Willys-kampanjer | Willys öppna JSON-endpoints `/search/campaigns/online` (e-handel) och `/search/campaigns/offline` (bara i butik; produktkoden ligger i `potentialPromotions[0].mainProductCode`) |
+| Willys- och Hemköp-kampanjer | Axfoods öppna JSON-endpoints (samma på willys.se och hemkop.se) `/search/campaigns/online` (e-handel) och `/search/campaigns/offline` (bara i butik; produktkoden ligger i `potentialPromotions[0].mainProductCode`) |
 | Willys-sök och tillgänglighet | En anonym session per körning där din butik (`butiker.willys.store_id`) väljs via `/axfood/rest/v2/store/activate`. `/search` ignorerar `storeId`-parametrar, så sortimentet styrs av butiken i sessionen. Varor som inte finns i butiken ger 404 på `/axfood/rest/p/<kod>`. Cookies hålls bara i minnet, och tillgängligheten cachas aldrig. |
 | ICA-kampanjer | JSON inbäddad i butikens erbjudandesida på ica.se |
 | Meny och produktval | Claude via `claude -p` (Pro/Max) eller Anthropic API (om `ANTHROPIC_API_KEY` finns) |
-| Varukorg | Playwright med din inloggade Willys-profil (`browser-profiles/`, lokal och aldrig incheckad) |
+| Varukorg | Playwright med din inloggade profil per kedja (`browser-profiles/<kedja>`, lokal och aldrig incheckad) |
 
 ```
 veckohandla/
-  stores/willys.py   kampanjer, sök, butikssök
+  stores/axfood.py   Axfood-API:t: kampanjer, sök, butikssök, butiksval, produktdetaljer
+  stores/willys.py   Willys (tunt lager ovanpå axfood.py)
+  stores/hemkop.py   Hemköp (tunt lager ovanpå axfood.py)
   stores/ica.py      ICA-erbjudanden
   planner.py         Claude-anrop (meny + produktval) med strikta JSON-scheman
   pipeline.py        hela veckoflödet
-  cart.py            fyller Willys-varukorgen
+  cart.py            fyller varukorgen hos Willys eller Hemköp
   ingredienser.py    ingredienskontroll mot spärrorden
   report.py          HTML-rapport och mejl
 tests/               pytest med fixturer, utan nätverk

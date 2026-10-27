@@ -1,4 +1,4 @@
-"""HTML-rapport (mejlas) med meny, recept, Willys-korg och ev. ICA-butikslistor."""
+"""HTML-rapport (mejlas) med meny, recept, korgen (Willys eller Hemköp) och ev. butikslistor."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def _upprakning(namn: list[str]) -> str:
 
 
 def _etikett(res: Result, store: str) -> str:
-    return "Willys i butik" if store == res.willys_i_butik_namn else store
+    return f"{res.kedja} i butik" if store == res.willys_i_butik_namn else store
 
 
 def byte_text(l) -> str:
@@ -98,7 +98,7 @@ def render_forslag(res: Forslagsresultat) -> str:
         f"<h1>Veckoförslag {e(res.week)}</h1>",
         "<div style='background:#eaf2fb;border:1px solid #9cc0e6;padding:12px;border-radius:8px'>"
         f"<b>Välj {res.middagar_per_vecka} rätter</b> genom att köra kommandot med deras nummer på datorn där du är "
-        f"inloggad på Willys, i den ordning du vill äta dem (första blir måndag):<br>"
+        f"inloggad på {e(res.kedja)}, i den ordning du vill äta dem (första blir måndag):<br>"
         f"<code style='font-size:15px'>{e(valj_exempel(res))}</code><br>"
         "<small>Då görs inköpslistan för just de rätterna, korgen fylls och du får veckans rapport.</small></div>",
         f"<p>{e(res.forslag.kommentar)}</p>",
@@ -136,7 +136,7 @@ def render(res: Result) -> str:
         parts.append(
             "<p style='background:#fff6e0;border:1px solid #e6c46e;padding:12px;border-radius:8px'>"
             "🛒 <b>Varukorgen är inte fylld än.</b> Kör "
-            f"<code>{e(fyll_kommando(res.week))}</code> på datorn där du är inloggad på Willys.</p>"
+            f"<code>{e(fyll_kommando(res.week))}</code> på datorn där du är inloggad på {e(res.kedja)}.</p>"
         )
     parts += [
         f"<p>{e(res.plan.kommentar)}</p>",
@@ -161,14 +161,15 @@ def render(res: Result) -> str:
 
     if res.cart is not None:
         missing = res.cart.get("missing") or []
-        msg = f"✅ Varukorgen på Willys är fylld (korgens total: {e(str(res.cart.get('total')))})."
+        msg = f"✅ Varukorgen på {e(res.kedja)} är fylld (korgens total: {e(str(res.cart.get('total')))})."
         if missing:
             msg += f" ⚠️ {len(missing)} varor kom inte med eller fick för lågt antal: {e(', '.join(missing))}."
         if res.cart.get("byten"):
-            msg += " Willys nekade varor som ersattes med reserv: " + e("; ".join(res.cart["byten"])) + "."
+            msg += f" {e(res.kedja)} nekade varor som ersattes med reserv: " + e("; ".join(res.cart["byten"])) + "."
         if res.cart.get("annan_enhet"):
             msg += f" Fanns redan i annan enhet och rördes inte: {e(', '.join(res.cart['annan_enhet']))}."
-        msg += " Gå in på <a href='https://www.willys.se/'>willys.se</a>, välj tid och beställ."
+        doman = res.kedja_url.removeprefix("https://www.").rstrip("/")
+        msg += f" Gå in på <a href='{e(res.kedja_url)}'>{e(doman)}</a>, välj tid och beställ."
         parts.append(f"<p style='background:#eef7ee;padding:12px;border-radius:8px'>{msg}</p>")
 
     if res.butik_flaggor:

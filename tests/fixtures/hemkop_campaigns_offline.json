@@ -1,0 +1,322 @@
+{
+ "results": [
+  {
+   "showGoodPriceIcon": false,
+   "offlinePromotionLowestHistoricalPrice": null,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07340083448621_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 850.91565,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": " 69,55 kr",
+   "promotionProductOrdinaryComparePriceUnit": "L",
+   "potentialPromotions": [
+    {
+     "comparePrice": "50,00/l",
+     "mainProductCode": "101245382_ST",
+     "discountPrice": null,
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "",
+     "brands": [
+      "Garant"
+     ],
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "productCodes": [
+      "101245382_ST",
+      "101245380_ST",
+      "101222584_ST",
+      "101548666_ST",
+      "101222583_ST"
+     ],
+     "weightVolume": "2dl",
+     "sorting": null,
+     "redeemLimit": null,
+     "campaignType": "GENERAL",
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z061",
+      "visible": null
+     },
+     "savePrice": "Spara 1,07-6,45 kr",
+     "price": 10.0,
+     "qualifyingCount": 1,
+     "cartLabel": "10 kr/st",
+     "timesUsed": null,
+     "conditionLabel": "",
+     "rewardLabel": "10,00",
+     "textLabel": "",
+     "textLabelGenerated": "",
+     "startDate": "26/10-2026",
+     "validUntil": 1793573999000,
+     "code": "2500334401",
+     "threshold": null,
+     "endDate": "01/11-2026",
+     "name": "Crème fraîche",
+     "priority": null,
+     "description": "flera sorter, fetthalt 8-32%, gäller ej ekologisk"
+    }
+   ],
+   "manufacturer": "Garant",
+   "online": false,
+   "displayVolume": "2dl",
+   "priceNoUnit": "13,91",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/07340083448621_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "googleAnalyticsCategory": "mejeri-ost-och-agg|matlagningsmejerier|creme-fraiche",
+   "priceUnit": "kr/st",
+   "price": "13,91 kr",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "ranking": 850.9156713812882,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07340083448621_C1N1_s04",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "title": "2644 DR E-HANDEL HEM",
+   "lowestHistoricalPrice": null,
+   "labels": [
+    "swedish_flag",
+    "from_sweden"
+   ],
+   "name": "Crème fraîche"
+  },
+  {
+   "showGoodPriceIcon": false,
+   "offlinePromotionLowestHistoricalPrice": "64,35-75,66 kr/st",
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07310050001043_C1L1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 760.91565,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": " 143,00 kr",
+   "promotionProductOrdinaryComparePriceUnit": "KG",
+   "potentialPromotions": [
+    {
+     "comparePrice": "111,00/kg",
+     "mainProductCode": "101544610_ST",
+     "discountPrice": null,
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "Max 2 köp",
+     "brands": [
+      "Löfbergs"
+     ],
+     "promotionPercentage": null,
+     "promotionRedeemLimit": 2,
+     "productCodes": [
+      "101544610_ST",
+      "101225750_ST",
+      "101225749_ST",
+      "101276230_ST",
+      "101211676_ST",
+      "101288903_ST",
+      "101505790_ST",
+      "101232435_ST",
+      "101288928_ST",
+      "101286808_ST",
+      "101288951_ST",
+      "101841082_ST"
+     ],
+     "weightVolume": "450g",
+     "sorting": null,
+     "redeemLimit": 2,
+     "campaignType": "LOYALTY",
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z060",
+      "visible": null
+     },
+     "savePrice": "Spara 12,50-16,70 kr",
+     "price": 49.95,
+     "qualifyingCount": 1,
+     "cartLabel": "49,95 kr/st",
+     "timesUsed": null,
+     "conditionLabel": "",
+     "rewardLabel": "49,95",
+     "textLabel": "Klubbpris",
+     "textLabelGenerated": "Klubbpris",
+     "startDate": "26/10-2026",
+     "validUntil": 1793573999000,
+     "code": "2500321141",
+     "threshold": null,
+     "endDate": "01/11-2026",
+     "name": "Kaffe",
+     "priority": null,
+     "description": "flera sorter, malet, gäller även ekologiskt"
+    }
+   ],
+   "manufacturer": "Löfbergs",
+   "online": false,
+   "displayVolume": "450g",
+   "priceNoUnit": "64,35",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/07310050001043_C1L1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "googleAnalyticsCategory": "skafferi|kaffe|bryggkaffe",
+   "priceUnit": "kr/st",
+   "price": "64,35 kr",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "ranking": 760.9156715877266,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07310050001043_C1L1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "title": "2644 KLUBB HEM",
+   "lowestHistoricalPrice": null,
+   "labels": null,
+   "name": "Kaffe"
+  },
+  {
+   "showGoodPriceIcon": false,
+   "offlinePromotionLowestHistoricalPrice": null,
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07311041064214_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 760.91565,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": " 18,88 kr",
+   "promotionProductOrdinaryComparePriceUnit": "ST",
+   "potentialPromotions": [
+    {
+     "comparePrice": "12,00/st",
+     "mainProductCode": "101154625_ST",
+     "discountPrice": null,
+     "splashTitleText": "Kampanj",
+     "realMixAndMatch": false,
+     "redeemLimitLabel": "",
+     "brands": [
+      "Garant"
+     ],
+     "promotionPercentage": null,
+     "promotionRedeemLimit": null,
+     "productCodes": [
+      "101154625_ST"
+     ],
+     "weightVolume": "0,5g",
+     "sorting": null,
+     "redeemLimit": null,
+     "campaignType": "LOYALTY",
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z060",
+      "visible": null
+     },
+     "savePrice": "Spara 13,76 kr",
+     "price": 24.0,
+     "qualifyingCount": 2,
+     "cartLabel": "2 för 24 kr",
+     "timesUsed": null,
+     "conditionLabel": "2 för",
+     "rewardLabel": "24,00",
+     "textLabel": "Klubbpris",
+     "textLabelGenerated": "Klubbpris",
+     "startDate": "26/10-2026",
+     "validUntil": 1793573999000,
+     "code": "2500322841",
+     "threshold": null,
+     "endDate": "01/11-2026",
+     "name": "Saffran",
+     "priority": null,
+     "description": "klass 1"
+    }
+   ],
+   "manufacturer": "Garant",
+   "online": false,
+   "displayVolume": "0,5g",
+   "priceNoUnit": "18,88",
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/07311041064214_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "googleAnalyticsCategory": "skafferi|kryddor-och-smaksattare|kryddor",
+   "priceUnit": "kr/st",
+   "price": "18,88 kr",
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "ranking": 760.9156715418515,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07311041064214_C1N1_s03",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "title": "2644 KLUBB HEM",
+   "lowestHistoricalPrice": null,
+   "labels": null,
+   "name": "Saffran"
+  }
+ ],
+ "sorts": null,
+ "pagination": {
+  "pageSize": 100,
+  "currentPage": 0,
+  "sort": null,
+  "numberOfPages": 1,
+  "totalNumberOfResults": 3,
+  "allProductsInCategoriesCount": 0,
+  "allProductsInSearchCount": 0
+ },
+ "relatedResults": null,
+ "relatedResultsPagination": null,
+ "currentQuery": null,
+ "breadcrumbs": [],
+ "facets": null
+}

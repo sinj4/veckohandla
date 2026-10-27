@@ -1,0 +1,91 @@
+{
+ "results": [
+  {
+   "specialOpeningHours": null,
+   "franchise": false,
+   "openingHours": [
+    "Mån 06:00-23:47",
+    "Tis 06:00-23:47",
+    "Ons 06:00-23:47",
+    "Tors 06:00-23:47",
+    "Fre 06:00-23:47",
+    "Lör 06:00-23:47",
+    "Sön 06:00-23:47"
+   ],
+   "scanAndGo": true,
+   "openingHoursMessageKey": "store.openMessage.open",
+   "openingStoreMessageValue": "6:00-23:47:00",
+   "b2bClickAndCollect": true,
+   "clickAndCollect": true,
+   "storeId": "4127",
+   "geoPoint": {
+    "latitude": 59.3072,
+    "longitude": 18.0755
+   },
+   "externalPickupLocation": false,
+   "displayName": "Hemköp Stockholm Skanstull",
+   "todaysOpeningHours": "6:00-23:47:00",
+   "name": "Hemköp Stockholm Skanstull",
+   "open": true,
+   "address": {
+    "line1": "Ringvägen 100 B",
+    "line2": null,
+    "postalCode": "11860",
+    "town": "Stockholm",
+    "phoneNumber": "08-4427120",
+    "phone": "08-4427120"
+   }
+  },
+  {
+   "specialOpeningHours": null,
+   "franchise": false,
+   "openingHours": [
+    "Mån 07:00-22:00",
+    "Tis 07:00-22:00",
+    "Ons 07:00-22:00",
+    "Tors 07:00-22:00",
+    "Fre 07:00-22:00",
+    "Lör 07:00-22:00",
+    "Sön 07:00-22:00"
+   ],
+   "scanAndGo": true,
+   "openingHoursMessageKey": "store.openMessage.open",
+   "openingStoreMessageValue": "7:00-22:00",
+   "b2bClickAndCollect": true,
+   "clickAndCollect": true,
+   "storeId": "4162",
+   "geoPoint": {
+    "latitude": 59.2633,
+    "longitude": 18.1221
+   },
+   "externalPickupLocation": false,
+   "displayName": "Hemköp Stockholm Skarpnäck",
+   "todaysOpeningHours": "7:00-22:00",
+   "name": "Hemköp Stockholm Skarpnäck",
+   "open": true,
+   "address": {
+    "line1": "Gråhundsvägen 82-84",
+    "line2": null,
+    "postalCode": "12862",
+    "town": "Sköndal",
+    "phoneNumber": "08-930850",
+    "phone": "08-930850"
+   }
+  }
+ ],
+ "sorts": null,
+ "pagination": {
+  "pageSize": 400,
+  "currentPage": 0,
+  "sort": null,
+  "numberOfPages": 1,
+  "totalNumberOfResults": 31,
+  "allProductsInCategoriesCount": 0,
+  "allProductsInSearchCount": 0
+ },
+ "relatedResults": null,
+ "relatedResultsPagination": null,
+ "currentQuery": null,
+ "breadcrumbs": [],
+ "facets": null
+}

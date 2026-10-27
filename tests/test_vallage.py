@@ -187,9 +187,9 @@ def test_valj_varnar_om_forslagen_ar_fran_en_annan_vecka(miljo):
 def test_valj_fyller_korgen_med_fill_cart(miljo, monkeypatch):
     spara_forslag(miljo)
     fyllda = []
-    monkeypatch.setattr(pipeline, "fill_saved_cart", lambda week, log=None: fyllda.append(week) or {"total": "1", "missing": []})
+    monkeypatch.setattr(pipeline, "fill_saved_cart", lambda week, log=None, kedja="willys": fyllda.append((week, kedja)) or {"total": "1", "missing": []})
     res = pipeline.valj(CFG, ["3"], fill_cart=True, log=lambda *a: None)
-    assert fyllda == [VECKA] and res.cart is not None
+    assert fyllda == [(VECKA, "willys")] and res.cart is not None
 
 
 # ---------- Kommandoraden ----------
