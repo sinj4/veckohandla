@@ -176,6 +176,9 @@ def _offers_block(offers: list[Offer]) -> str:
     for store, items in by_store.items():
         lines = "\n".join(f"- {o.short()}" for o in items)
         parts.append(f"## {store} ({len(items)} kampanjer)\n{lines}")
+    if any(o.prisnotis for o in offers):
+        parts.insert(0, "Prismarkering ur prishistoriken: BRA PRIS = minst 15 % under medianen av ordinarie pris de "
+                        "senaste 8 veckorna (prioritera), VANLIGT PRIS = inom 5 % av medianen, alltså ingen riktig rea.")
     return "\n\n".join(parts)
 
 

@@ -13,7 +13,7 @@ from typing import Callable
 
 from .models import Offer, Product
 from .planner import Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad
-from . import ingredienser, lager
+from . import ingredienser, lager, priser
 from .stores import ica, willys
 
 # Kan bytas ut i tester (monkeypatch pipeline.DATA) eller via miljövariabeln VECKOHANDLA_DATA
@@ -91,6 +91,7 @@ class Result:
     varningar: list[str] = field(default_factory=list)
     offers_count: dict[str, int] = field(default_factory=dict)
     kostnad: dict | None = None  # Claude-förbrukning per steg och totalt (se spara_forbrukning)
+    prismarkerade: list[Offer] = field(default_factory=list)  # kampanjer med "bra pris"/"vanligt pris"
 
 
 def week_id(today: dt.date | None = None) -> str:
@@ -434,6 +435,13 @@ def _kampanjer(cfg: dict, log, varningar: list[str], kontrollera_farska: bool = 
     for o in offers:
         counts[o.store] = counts.get(o.store, 0) + 1
     log("  " + ", ".join(f"{k}: {v}" for k, v in counts.items()))
+
+    # Prishistorik: markera mot tidigare veckor och spara sedan veckans kampanjer
+    markerade = priser.markera(week_id(), offers, DATA)
+    priser.spara(week_id(), offers, DATA)
+    if markerade:
+        bra = sum(o.prisnotis == priser.BRA_PRIS for o in markerade)
+        log(f"  Prishistorik: {bra} med bra pris, {len(markerade) - bra} med vanligt pris")
     return offers, counts
 
 
@@ -523,7 +531,8 @@ def _handla(
         )
 
     result = Result(week=week, plan=plan, lines=lines, offers_count=counts, varningar=varningar,
-                    willys_namn=willys_name, willys_i_butik_namn=i_butik_namn)
+                    willys_namn=willys_name, willys_i_butik_namn=i_butik_namn,
+                    prismarkerade=[o for o in offers if o.prisnotis])
 
     ingr_ord = sparrord + [w.lower() for w in cfg["hushall"].get("sparrord_ingredienser", [])]
     with ingredienser.Ingredienskontroll(ingr_ord, DATA / "ingredienser-cache.json") as ik:
@@ -706,6 +715,7 @@ class Forslagsresultat:
     offers_count: dict[str, int] = field(default_factory=dict)
     varningar: list[str] = field(default_factory=list)
     kostnad: dict | None = None
+    prismarkerade: list[Offer] = field(default_factory=list)
 
 
 class IngaForslag(RuntimeError):
@@ -748,7 +758,7 @@ def foresla(cfg: dict, log=print) -> Forslagsresultat:
     for i, r in enumerate(forslag.ratter, 1):
         log(f"  {i:>2}. {r.ratt}")
     res = Forslagsresultat(week=week_id(), forslag=forslag, middagar_per_vecka=cfg["hushall"]["middagar_per_vecka"],
-                           offers_count=counts, varningar=varningar)
+                           offers_count=counts, varningar=varningar, prismarkerade=[o for o in offers if o.prisnotis])
     DATA.mkdir(exist_ok=True)
     forslag_fil(res.week).write_text(forslag.model_dump_json(indent=2))
     res.kostnad = spara_forbrukning(res.week, planner, "förslag", log)

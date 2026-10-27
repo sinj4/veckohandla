@@ -89,6 +89,14 @@ Allt ställs in i `config.yaml`, se de kommenterade exemplen i [`config.example.
 - **`claude.model_meny`** och **`claude.model_produkter`**: modell per steg. Saknas de används `claude.model`.
 - **`meny.lage`** (standard `auto`): `auto` gör en färdig meny varje vecka, `val` gör förslag som du väljer bland (se Valläget). **`meny.forslag`** (standard 10) anger antalet förslag.
 
+## Prishistorik
+
+Varje veckas kampanjer sparas kompakt i `data/priser/<vecka>.json` med butik, produktkod (Willys), namn, kampanjpris per styck, ordinarie pris och jämförpris. ICA:s id byts varje vecka, så ICA-varor känns igen på butik, namn och varumärke. Nästa vecka jämförs kampanjpriset med medianen av ordinarie pris de senaste 8 veckorna:
+- **bra pris**: minst 15 % under medianen.
+- **vanligt pris**: inom 5 % av medianen, alltså ingen riktig rea.
+
+Med färre än 3 veckors historik för en vara görs ingen markering. Viktvaror markeras inte, eftersom kampanjpris och ordinarie pris kan ha olika enhet. Planeraren ser markeringen i kampanjlistan. Rapporten visar den på korgraderna och butiksalternativen, tillsammans med en lista över veckans bra priser.
+
 ## Kostnad
 
 Varje körning gör 2–3 Claude-anrop: meny (eller förslag), produktval och, i valläget, inköpslistan. Förbrukningen summeras per körning och per steg. Den skrivs i loggen, på en liten rad längst ner i rapporten och i `data/<vecka>-kostnad.json` med en post per körning.

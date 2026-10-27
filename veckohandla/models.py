@@ -26,6 +26,7 @@ class Offer:
     promo_qty: int | None = None
     promo_total: float | None = None
     promo_max: int | None = None
+    prisnotis: str = ""  # "bra pris" / "vanligt pris" ur prishistoriken (priser.py), annars tom
 
     def kostnad(self, antal: int) -> float | None:
         """Kostnad för `antal` st enligt kampanjen, eller None om kampanjen inte går att tolka.
@@ -47,7 +48,8 @@ class Offer:
     def short(self) -> str:
         brand = f" ({self.brand})" if self.brand else ""
         reg = f", ord. {self.regular_price}" if self.regular_price else ""
-        return f"{self.name}{brand}: {self.deal} [{self.compare_price}{reg}]"
+        notis = f" – {self.prisnotis.upper()}" if self.prisnotis else ""
+        return f"{self.name}{brand}: {self.deal} [{self.compare_price}{reg}]{notis}"
 
 
 @dataclass

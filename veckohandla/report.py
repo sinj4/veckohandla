@@ -65,6 +65,26 @@ def valj_exempel(res: Forslagsresultat) -> str:
     return f"{valj_kommando(res.week)} {' '.join(str(1 + i * steg) for i in range(antal))}"
 
 
+def _prisetikett(notis: str) -> str:
+    if notis == "bra pris":
+        return " <small style='background:#e6f4e6;color:#1d6b1d;padding:1px 5px;border-radius:4px'>🏷️ bra pris</small>"
+    if notis == "vanligt pris":
+        return " <small style='background:#eee;color:#666;padding:1px 5px;border-radius:4px'>vanligt pris</small>"
+    return ""
+
+
+def _prislista(markerade: list) -> str:
+    """Kort sammanfattning av prishistoriken med veckans bra priser i en utfällbar lista."""
+    if not markerade:
+        return ""
+    e = html.escape
+    bra = [o for o in markerade if o.prisnotis == "bra pris"]
+    rader = "".join(f"<li>{e(o.store)}: {e(o.name)} – {e(o.deal)} (ord. {e(o.regular_price)})</li>" for o in bra)
+    lista = f"<details><summary>Bra pris den här veckan ({len(bra)})</summary><ul>{rader}</ul></details>" if bra else ""
+    return (f"<div style='color:#666;font-size:13px'>Prishistorik (8 veckor): {len(bra)} kampanjer med bra pris, "
+            f"{len(markerade) - len(bra)} med vanligt pris.{lista}</div>")
+
+
 def _kostnadsrad(kostnad: dict | None) -> str:
     if not kostnad:
         return ""
@@ -85,6 +105,7 @@ def render_forslag(res: Forslagsresultat) -> str:
         "<p style='color:#666;font-size:13px'>Kampanjer skannade: "
         + ", ".join(f"{e(k)} {v}" for k, v in res.offers_count.items())
         + "</p>",
+        _prislista(res.prismarkerade),
     ]
     for v in res.varningar:
         parts.append(
@@ -122,7 +143,9 @@ def render(res: Result) -> str:
         "<p style='color:#666;font-size:13px'>Kampanjer skannade: "
         + ", ".join(f"{e(k)} {v}" for k, v in res.offers_count.items())
         + "</p>",
+        _prislista(res.prismarkerade),
     ]
+    notis = {(o.store, o.code): o.prisnotis for o in res.prismarkerade}
 
     for v in res.varningar:
         parts.append(
@@ -193,7 +216,8 @@ def render(res: Result) -> str:
                 kolla_b = " Kontrollera ingredienserna i butiken." if l.butik_kontrollera else ""
                 bytt += (
                     "<br><span style='display:inline-block;margin-top:3px;background:#eaf2fb;padding:2px 6px;border-radius:4px;color:#1a4f8b'>"
-                    f"Billigare i butik: {e(b.butik_erbjudande or '')} {e(pris)} på {e(b.butik)}, spar {_kr(l.butik_spar)}. "
+                    f"Billigare i butik: {e(b.butik_erbjudande or '')} {e(pris)} på {e(b.butik)}, spar {_kr(l.butik_spar)}."
+                    f"{_prisetikett(notis.get((b.butik, b.butik_kod or ''), ''))} "
                     f"Ta bort ur korgen om du köper den där.{e(kolla_b)}</span>"
                 )
             if l.storpack:
@@ -201,6 +225,7 @@ def render(res: Result) -> str:
                 pris = f" ({jp:.2f} kr/{l.product.jamfor_enhet})".replace(".", ",") if jp is not None else ""
                 bytt += f"<br><small style='color:#2a7a2a'>Storpack, lägst jämförpris{e(pris)}</small>"
             promo = f"<br><small style='color:#c00'>{e(l.product.promo_text)}</small>" if l.product.promo_text else ""
+            promo += _prisetikett(notis.get((res.willys_namn, l.product.code), ""))
             parts.append(
                 f"<tr><td>{e(l.row.vara)}<br><small style='color:#666'>{e(l.row.behov)}</small></td>"
                 f"<td><a href='{e(l.product.url)}'>{e(l.product.name)}</a> {e(l.product.size)}{promo}{kolla}{bytt}</td>"
