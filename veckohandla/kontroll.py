@@ -94,9 +94,13 @@ def kampanjer(cfg: dict) -> list[Punkt]:
         try:
             n = len(hamta())
         except Exception as e:
-            if ica_butik and _ar_403(e):
-                punkter.append(Punkt(NOTIS, f"{namn}: ica.se svarar 403 härifrån – {pipeline.ICA_LOKALT}",
-                                     "Sätt bara_lokalt: true för butiken om det här är molnet"))
+            if ica_butik and _ar_403(e) and pipeline.i_molnet():
+                punkter.append(Punkt(NOTIS, f"{namn}: ica.se svarar 403 till molnet – {pipeline.ICA_LOKALT}",
+                                     "Sätt bara_lokalt: true för butiken"))
+            elif ica_butik and _ar_403(e):
+                punkter.append(Punkt(NOTIS, f"{namn}: ica.se svarar 403 även från den här datorn – "
+                                            "butiken kan inte jämföras just nu",
+                                     "Inget att göra i veckohandla; projektet försöker inte kringgå blockeringen"))
             else:
                 punkter.append(Punkt(FEL, f"{namn}: kampanjerna gick inte att hämta ({e})",
                                      "Kontrollera butiken i config.yaml och nätverket"))
