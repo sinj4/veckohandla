@@ -1,4 +1,4 @@
-"""ICA blockerar GitHub Actions: bara_lokalt och 403 ger en neutral rad i stället för en varning."""
+"""ICA blockerar automatiska anrop (403): bara_lokalt och 403 ger en neutral rad i stället för en varning."""
 
 import httpx
 import pytest
@@ -87,6 +87,11 @@ def test_loggen_visar_raden_en_gang_med_tips(monkeypatch):
     pipeline._kampanjer({**cfg(), "hushall": {}, "optimering": {}}, logg.append, [], kontrollera_farska=False)
     assert [r for r in logg if "ICA" in r or "fel" in r] == [
         f"  {ICA_LOKALT}", "  Tips: ICA A …", "  Tips: ICA B …", "  VARNING: Annat fel"]
+
+
+def test_notisens_text():
+    assert ICA_LOKALT == ("ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas inte, "
+                          "men ICA-priser jämförs inte.")
 
 
 def test_rapporterna_visar_neutral_rad_i_stallet_for_varning():

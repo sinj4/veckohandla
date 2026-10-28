@@ -387,7 +387,7 @@ def butikens_troskel(cfg: dict) -> Callable[[str], float]:
     return troskel
 
 
-ICA_LOKALT = "ICA-priser jämförs när du väljer rätter på datorn (ICA blockerar molnet)."
+ICA_LOKALT = "ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas inte, men ICA-priser jämförs inte."
 
 
 class Notis(str):

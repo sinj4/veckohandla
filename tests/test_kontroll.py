@@ -110,11 +110,11 @@ def test_kampanjer_per_butik_och_ica_403_som_notis(butiker, monkeypatch):
     rader = [(p.status, p.text.split(":")[0]) for p in kontroll.kampanjer(cfg)]
     assert rader == [(OK, "Willys Test"), (OK, "Willys Test (i butik)"), (OK, "Hemköp Test"), (NOTIS, "ICA A"), (OK, "ICA B")]
     ica_a = kontroll.kampanjer(cfg)[3]
-    assert "403 även från den här datorn" in ica_a.text and ica_a.status == NOTIS
+    assert ica_a.rad() == ("ℹ️ ICA A: ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas "
+                           "inte, men ICA-priser jämförs inte.")
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     cfg["butiker"]["ica"] = CFG["butiker"]["ica"][:1]
-    ica_a = kontroll.kampanjer(cfg)[3]
-    assert ica_a.text.startswith("ICA A: ica.se svarar 403 till molnet") and ica_a.atgard == "Sätt bara_lokalt: true för butiken"
+    assert kontroll.kampanjer(cfg)[3].rad() == ica_a.rad()  # samma notis i molnet och på datorn
 
 
 def test_bara_lokalt_i_molnet_ar_notis(butiker, monkeypatch):

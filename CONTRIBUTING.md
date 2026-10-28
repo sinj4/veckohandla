@@ -19,7 +19,7 @@ Lägg till ett test för ny logik. Behöver testet ett API-svar, spara ett trimm
 `tests/fixtures/` och kontrollera att inget personligt följer med.
 
 ## Riktlinjer
-- **Ingen kringgång av skydd.** Om en butik blockerar automatisering (bot-spärrar, CAPTCHA, WAF) respekterar vi det. PR:er som försöker ta sig förbi sådana spärrar tas inte emot.
+- **Ingen kringgång av skydd.** Om en butik blockerar automatisering (bot-spärrar, CAPTCHA, WAF) respekterar vi det. PR:er som försöker ta sig förbi sådana spärrar tas inte emot. Det gäller till exempel ica.se, som just nu svarar 403 på automatiska anrop: ICA-jämförelsen kan vara blockerad, och vi försöker inte ta oss runt det (inga andra headers, proxyservrar eller webbläsarautomation mot ica.se).
 - **Lägg aldrig order automatiskt.** Boten fyller varukorgen, men människan beställer.
 - **Var snäll mot butikernas servrar.** Gör få anrop, lägg in pauser och undvik parallell skrapning.
 - **Checka aldrig in personliga data**: `config.yaml`, `.env`, `browser-profiles/` och `data/` är undantagna i `.gitignore`.
