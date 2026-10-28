@@ -71,8 +71,9 @@ butiker:
   #   i_butik: true
   # ICA-butiker används för kampanjjämförelse; billigare ICA-varor flaggas i rapporten (korgen är ändå komplett).
   # Slug = sista delen av butikens erbjudandesida, t.ex. https://www.ica.se/erbjudanden/<slug>/
-  # bara_lokalt: true = hämta inte butiken i GitHub Actions (ICA svarar 403 till molnet); den jämförs
-  # då när du väljer rätter på datorn, och rapporten säger det med en neutral rad i stället för en varning.
+  # ICA blockerar automatiska anrop just nu (403), både från molnet och från datorn. Rätterna och korgen
+  # påverkas inte, men ICA-priser jämförs inte; rapporten säger det med en neutral rad.
+  # bara_lokalt: true = hämta inte butiken i GitHub Actions (inga anrop mot ica.se från molnet).
   ica:
     - namn: ICA Kvantum Trossen
       erbjudande_slug: ica-kvantum-trossen-16622
@@ -94,7 +95,7 @@ optimering:
 epost:
   till: du@example.com
   fran: du@example.com
-  smtp_host: smtp.gmail.com
+  smtp_host: smtp.gmail.com   # gäller Gmail – byt till din leverantörs SMTP-server annars
   smtp_port: 587
   # Lösenord läses från miljövariabeln SMTP_PASSWORD (Gmail: app-lösenord)
 

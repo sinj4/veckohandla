@@ -229,8 +229,9 @@ def fraga_ica(f: Fragor) -> list[dict]:
             "Butikerna går inte att söka fram automatiskt (ica.se blockerar det), så klistra in adressen till\n"
             "butikens erbjudandesida: gå till ica.se/butiker, välj butiken och sedan Erbjudanden. Adressen ser ut\n"
             "som https://www.ica.se/erbjudanden/ica-supermarket-exempel-12345/. Tom rad = klart.\n"
-            "ICA svarar 403 till GitHub Actions, så butikerna hämtas som standard bara när du kör på datorn\n"
-            "(bara_lokalt: true).")
+            "ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas inte, men ICA-priser\n"
+            "jämförs inte. Butikerna kan ändå läggas in; med bara_lokalt: true (standard) görs inga anrop mot\n"
+            "ica.se från molnet.")
     butiker = []
     while True:
         adress = f.text("Erbjudandesida eller slug (Enter = klart)")
@@ -238,7 +239,7 @@ def fraga_ica(f: Fragor) -> list[dict]:
             return butiker
         slug = ica_slug(adress)
         namn = f.text("Butikens namn", ica_namn(slug))
-        lokalt = f.ja("Hämta bara på datorn (rekommenderas, ICA blockerar molnet)?", True)
+        lokalt = f.ja("Hämta aldrig i molnet (bara_lokalt, rekommenderas)?", True)
         butiker.append({"namn": namn, "erbjudande_slug": slug, **({"bara_lokalt": True} if lokalt else {})})
 
 

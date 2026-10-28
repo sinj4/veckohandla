@@ -33,7 +33,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m veckohandla init       # installationsguide: skriver config.yaml (och SMTP-lösenordet i .env)
 .venv/bin/python -m veckohandla kontroll   # checklista: butik, kampanjer, Claude, mejl, inloggning
 ```
-Guiden frågar efter ort och butik, hushåll, vad ni inte äter, läge och mejl. Enter väljer standardsvaret. Den avslutar med `kontroll`, erbjuder `login` och skriver ut nästa steg. `init --ingen-fraga` tar alla svar från flaggor; se `init --help`.
+Guiden frågar efter ort och butik, hushåll, vad ni inte äter, läge och mejl. Gmail: skapa ett app-lösenord på https://myaccount.google.com/apppasswords. Enter väljer standardsvaret. Den avslutar med `kontroll`, erbjuder `login` och skriver ut nästa steg. `init --ingen-fraga` tar alla svar från flaggor; se `init --help`.
 
 Sedan:
 ```sh
@@ -191,7 +191,7 @@ Kör först `python -m veckohandla kontroll`. Den visar vad som saknas och vad d
 | Det här syns | Orsak | Gör så här |
 |---|---|---|
 | `API Error: 400 … does not support this model; version … or newer is required`, eller "Claude Code är för gammal för modellen" | Claude Code är äldre än modellen kräver | `npm install -g @anthropic-ai/claude-code@latest`. Loggen visar vilken binär som används. Välj en annan med `CLAUDE_BIN`. Mallens workflow installerar alltid senaste versionen. |
-| "MEJLET SKICKADES INTE: SMTP_PASSWORD saknas" (exit-kod 4) | App-lösenordet för mejlet saknas | Lägg `SMTP_PASSWORD=…` i `.env` (eller kör `init` igen). I molnet: secret `SMTP_PASSWORD`. Rapporten är ändå sparad i `data/`. |
+| "MEJLET SKICKADES INTE: SMTP_PASSWORD saknas" (exit-kod 4) | App-lösenordet för mejlet saknas | Lägg `SMTP_PASSWORD=…` i `.env` (eller kör `init` igen). Gmail: skapa ett app-lösenord på https://myaccount.google.com/apppasswords. I molnet: secret `SMTP_PASSWORD`. Rapporten är ändå sparad i `data/`. |
 | "Inte inloggad på Willys – kör: python -m veckohandla login", eller "Willys-inloggningen har gått ut" i rapporten | Inloggningen i webbläsarprofilen har gått ut | `python -m veckohandla login` och sedan `fyll-varukorg <vecka>`. |
 | "Veckans kampanjer är inte uppe än" (exit-kod 3) | Måndag morgon innan butikerna har publicerat veckans kampanjer | Inget fel. Schemat försöker igen senare på morgonen. Först i sista schemalagda körningen, eller i en manuell körning, blir det ett fel. Kör då lite senare. |
 | "ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas inte, men ICA-priser jämförs inte." | ica.se blockerar automatiska anrop, både från molnet och från datorn | Inget att göra: rätterna och korgen påverkas inte. Vi försöker inte ta oss runt blockeringen. Med `bara_lokalt: true` görs inga anrop mot ica.se från molnet. |

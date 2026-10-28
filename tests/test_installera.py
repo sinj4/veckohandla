@@ -141,7 +141,7 @@ def test_hela_guiden_interaktivt(tmp_path, claude_ok):
     assert env.read_text() == "SMTP_PASSWORD=hemligt-losenord\n"
     alla = "\n".join(utskrift + skript.fragor)
     assert "hemligt-losenord" not in alla and str(config) not in config.read_text()
-    assert "ICA svarar 403 till GitHub Actions" in alla
+    assert "ICA blockerar automatiska anrop just nu (403). Rätterna och korgen påverkas inte, men ICA-priser\njämförs inte." in alla
 
 
 def test_guiden_fragar_igen_vid_ogiltiga_svar(tmp_path, claude_ok):
