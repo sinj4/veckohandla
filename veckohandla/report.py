@@ -122,11 +122,13 @@ def _kostnadsrad(kostnad: dict | None) -> str:
     return f"<p style='color:#999;font-size:11px;margin-top:24px'>Claude: {html.escape(forbrukning_text(kostnad))}</p>"
 
 
-def render_forslag(res: Forslagsresultat) -> str:
+def render_forslag(res: Forslagsresultat, vecklankar: dict[str, str] | None = None) -> str:
+    """`vecklankar` (signerade länkar till mobilsidan) skickas bara med i mejlet, aldrig i filen i data/."""
     e = html.escape
     parts = [
         "<html><body style='font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:720px;margin:auto;color:#222'>",
         f"<h1>Veckoförslag {e(res.week)}</h1>",
+        f"<p>{_knapp(vecklankar['valj'], '✅ Välj rätter', '#2a6db0')}</p>" if vecklankar else "",
         "<div style='background:#eaf2fb;border:1px solid #9cc0e6;padding:12px;border-radius:8px'>"
         f"<b>Välj {res.middagar_per_vecka} rätter</b> genom att köra kommandot med deras nummer på datorn där du är "
         f"inloggad på {e(res.kedja)}, i den ordning du vill äta dem (första blir måndag):<br>"
@@ -153,7 +155,8 @@ def render_forslag(res: Forslagsresultat) -> str:
     return "\n".join(parts)
 
 
-def render(res: Result) -> str:
+def render(res: Result, vecklankar: dict[str, str] | None = None) -> str:
+    """`vecklankar` (signerade länkar till mobilsidan) skickas bara med i mejlet, aldrig i filen i data/."""
     e = html.escape
     parts = [
         "<html><body style='font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:720px;margin:auto;color:#222'>",
@@ -290,6 +293,8 @@ def render(res: Result) -> str:
                      f"(spar {_kr(sum(res.butik_besparing.values()))})</p>")
     if res.kop_i_butik_total:
         parts.append(f"<p>Plus köp i butik: ca {_kr(res.kop_i_butik_total)}</p>")
+    if vecklankar:
+        parts.append(f"<p>{_knapp(vecklankar['betyg'], '⭐ Sätt betyg på förra veckans rätter', '#7a5a2a')}</p>")
     parts.append(_kostnadsrad(res.kostnad))
     parts.append("</body></html>")
     return "\n".join(parts)

@@ -99,6 +99,11 @@ På Linux fungerar en cron-rad som kör `.venv/bin/python -m veckohandla kor --f
 ### Willys eller Hemköp
 Hemköp ägs av Axfood, precis som Willys, och har samma API. `butiker.e_handel` (`willys` eller `hemkop`, standard `willys`) väljer kedjan där varor söks och korgen fylls. Den andra kedjan kan stå med i `butiker` för jämförelse: dess butikskampanjer hämtas, kostnaden räknas ur kampanjen, och billigare varor flaggas i rapporten precis som för ICA. Samma ingredienskontroll gäller, eftersom produktkoderna är gemensamma, och prishistoriken sparas för båda kedjorna. Inloggningen sparas per kedja (`browser-profiles/willys`, `browser-profiles/hemkop`), så `login` och `fyll-varukorg` gäller kedjan i `e_handel`. Korgen hos Hemköp är byggd på samma API som Willys men inte provad mot ett riktigt konto.
 
+### Välja och sätta betyg från mobilen
+Mallen [sinj4/veckohandla-mall](https://github.com/sinj4/veckohandla-mall) har en mobilsida i katalogen `mobil/`. Det är en Cloudflare Worker där du väljer rätter, sätter betyg och ser körningarnas status. Sidan startar workflowen med inputs. Betygen sparas med `python -m veckohandla betyg --fran-text '{"vecka": "2026-v43", "betyg": [{"ratt": "Tacos", "betyg": 1, "kommentar": "god"}]}'`, och allt kontrolleras mot veckans plan innan något sparas.
+
+Finns miljövariablerna **`MOBIL_ADRESS`** (sidans adress) och **`LANKNYCKEL`** (samma nyckel som sidan använder) får mejlen knapparna **Välj rätter** och **Sätt betyg**. Länkarna är signerade för en vecka: de innehåller `v=<vecka>&t=<HMAC>`, men aldrig själva nyckeln. Rapporterna som sparas i `data/` får inga sådana länkar.
+
 ### Fyll korgen på mobilen
 Veckans rapport har knappen **📱 Fyll korgen på mobilen**. Den öppnar www.willys.se (eller www.hemkop.se) med veckans korg i adressen: `#veckohandla=…` innehåller bara produktkoder, antal och reserver. Ett bokmärke eller en iPhone-genväg läser sedan adressen och fyller korgen i mobilens webbläsare, där du redan är inloggad. Det lägger bara till det som fattas och prövar reserver när butiken nekar en vara, precis som `fyll-varukorg`. Det lägger aldrig någon order och tar aldrig bort något. Efteråt visas en ruta med vad som lades till, och länken rensas ur adressen.
 

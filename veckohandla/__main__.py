@@ -106,6 +106,9 @@ def main() -> int:
     v.add_argument("--ingen-mejl", action="store_true")
     b = sub.add_parser("betyg", help="sätt + eller − på förra (eller angiven) veckans rätter")
     b.add_argument("--vecka", help="t.ex. 2026-v43 (standard: förra veckan)")
+    b.add_argument("--fran-text", metavar="JSON",
+                   help='betyg utan frågor, t.ex. från mobilsidan: {"vecka": "2026-v43", "betyg": '
+                        '[{"ratt": "Tacos", "betyg": 1, "kommentar": "god"}]}')
     args = ap.parse_args()
 
     if args.cmd in ("hitta-willys", "hitta-hemkop"):
@@ -142,6 +145,8 @@ def main() -> int:
         return visa_forslag(cfg, args.vecka)
 
     if args.cmd == "betyg":
+        if args.fran_text is not None:
+            return betyg_fran_text(args.fran_text)
         return satt_betyg(args.vecka)
 
     if args.cmd == "login":
@@ -376,14 +381,53 @@ def satt_betyg(vecka: str | None, fraga=None) -> int:
     return 0
 
 
-def _forslagsrapport(cfg: dict, res, args) -> int:
-    from . import pipeline, report
+def betyg_fran_text(text: str) -> int:
+    """Betyg från mobilsidan (workflow-input `betyg`). Allt kontrolleras innan något sparas."""
+    import json
+    import re
 
-    page = report.render_forslag(res)
+    from . import betyg, pipeline
+
+    try:
+        d = json.loads(text)
+        vecka, poster = d["vecka"], d["betyg"]
+        if not isinstance(vecka, str) or not re.fullmatch(r"\d{4}-v\d{2}", vecka):
+            raise ValueError(f"ogiltig vecka {vecka!r}")
+        plan = pipeline.DATA / f"{vecka}.json"
+        if not plan.exists():
+            raise ValueError(f"hittade ingen plan för {vecka}")
+        ratter = {m["ratt"] for m in json.loads(plan.read_text())["middagar"]}
+        if not isinstance(poster, list) or not 1 <= len(poster) <= len(ratter):
+            raise ValueError(f"ange 1–{len(ratter)} betyg")
+        kontrollerade = []
+        for p in poster:
+            ratt, varde, kommentar = p["ratt"], p["betyg"], p.get("kommentar") or ""
+            if ratt not in ratter:
+                raise ValueError(f"{ratt!r} finns inte i planen för {vecka}")
+            if isinstance(varde, bool) or varde not in (1, -1):
+                raise ValueError(f"betyget för {ratt} måste vara 1 eller -1")
+            if not isinstance(kommentar, str) or len(kommentar) > 500:
+                raise ValueError(f"kommentaren för {ratt} får vara högst 500 tecken")
+            kontrollerade.append((ratt, varde, kommentar))
+    except (ValueError, KeyError, TypeError) as e:
+        print(f"Fel i betygen: {e}", file=sys.stderr)
+        return 1
+    for ratt, varde, kommentar in kontrollerade:
+        betyg.satt(pipeline.DATA, ratt, vecka, varde, kommentar)
+        print(f"{'+' if varde > 0 else '−'} {ratt}")
+    print(f"{len(kontrollerade)} betyg sparade för {vecka}")
+    return 0
+
+
+def _forslagsrapport(cfg: dict, res, args) -> int:
+    from . import mobil, pipeline, report
+
+    page = report.render_forslag(res)  # filen i data/ får inga signerade länkar
     out = pipeline.DATA / f"{res.week}-forslag.html"
     out.write_text(page)
     print(f"Förslagsrapport: {out}")
-    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckoförslag {res.week}", page, out)
+    mejl = report.render_forslag(res, mobil.vecklankar_fran_miljo(res.week))
+    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckoförslag {res.week}", mejl, out)
     if mejlfel:
         print(mejlfel, file=sys.stderr, flush=True)
         return MEJL_MISSLYCKADES
@@ -391,16 +435,17 @@ def _forslagsrapport(cfg: dict, res, args) -> int:
 
 
 def _veckorapport(cfg: dict, res, args) -> int:
-    from . import pipeline, report
+    from . import mobil, pipeline, report
 
-    page = report.render(res)
+    page = report.render(res)  # filen i data/ får inga signerade länkar
     out = pipeline.DATA / f"{res.week}.html"
     out.write_text(page)
     print(f"Rapport: {out}")
     print(f"{res.kedja}-korgen: {res.willys_total:.2f} kr"
           + (f", med flaggade butiksalternativ: {res.med_butiksalternativ:.2f} kr" if res.butik_besparing else ""))
 
-    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckomeny {res.week}", page, out)
+    mejl = report.render(res, mobil.vecklankar_fran_miljo(res.week))
+    mejlfel = None if args.ingen_mejl else _skicka_rapport(cfg, f"Veckomeny {res.week}", mejl, out)
     if res.cart_error:
         print(res.cart_error, file=sys.stderr)
     if mejlfel:
