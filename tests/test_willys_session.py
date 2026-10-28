@@ -11,7 +11,7 @@ def ingen_paus(monkeypatch):
     monkeypatch.setattr(http, "_sleep", lambda s: None)
 
 
-def mock_willys(aktiv_butik="2341", saknas=()):
+def mock_willys(aktiv_butik="0000", saknas=()):
     anrop = []
 
     def handler(req: httpx.Request) -> httpx.Response:
@@ -34,7 +34,7 @@ def mock_willys(aktiv_butik="2341", saknas=()):
         return httpx.Response(500)
 
     client = httpx.Client(base_url=willys.BASE, transport=httpx.MockTransport(handler))
-    return willys.WillysSession("2341", client=client), anrop
+    return willys.WillysSession("0000", client=client), anrop
 
 
 def test_butik_valjs_en_gang_och_ateranvands():
@@ -46,7 +46,7 @@ def test_butik_valjs_en_gang_och_ateranvands():
         sess.tillganglig("100268130_ST")
     activate = [a for a in anrop if a[1] == "/axfood/rest/v2/store/activate"]
     assert len(activate) == 1
-    assert activate[0][0] == "POST" and activate[0][2]["storeId"] == "2341"
+    assert activate[0][0] == "POST" and activate[0][2]["storeId"] == "0000"
     # Butiken väljs innan första sökningen
     assert [a[1] for a in anrop].index("/axfood/rest/v2/store/active") < [a[1] for a in anrop].index("/search")
     assert sum(1 for a in anrop if a[1] == "/search") == 2
@@ -74,7 +74,7 @@ def test_tillganglig_okand_vid_503_och_natverksfel():
         if p == "/axfood/rest/v2/store/activate":
             return httpx.Response(200, json={})
         if p == "/axfood/rest/v2/store/active":
-            return httpx.Response(200, json={"storeId": "2341"})
+            return httpx.Response(200, json={"storeId": "0000"})
         if p == "/axfood/rest/p/NERE_ST":
             return httpx.Response(503)
         if p == "/axfood/rest/p/TIMEOUT_ST":
@@ -82,7 +82,7 @@ def test_tillganglig_okand_vid_503_och_natverksfel():
         return httpx.Response(404)
 
     c = httpx.Client(base_url=willys.BASE, transport=httpx.MockTransport(handler))
-    with willys.WillysSession("2341", client=c) as sess:
+    with willys.WillysSession("0000", client=c) as sess:
         assert sess.tillganglig("NERE_ST") is None  # efter omförsöken: okänt, ingen krasch
         assert sess.tillganglig("TIMEOUT_ST") is None
         assert sess.tillganglig("SAKNAS_ST") is False  # 404 betyder som förut att varan inte finns

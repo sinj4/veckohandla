@@ -60,8 +60,8 @@ alltid_kop:
 butiker:
   e_handel: willys        # willys eller hemkop: kedjan där korgen fylls och varor söks (standard willys)
   willys:
-    namn: Willys Vagnhärad Lånesta
-    store_id: "2341"      # e-handelsbutiken – hitta din: python -m veckohandla hitta-willys <ort>
+    namn: Willys Exempelstad
+    store_id: "0000"      # e-handelsbutiken – hitta din: python -m veckohandla hitta-willys <ort>
     i_butik: true         # hämta även kampanjer som bara gäller i butiken
   # Hemköp (samma ägare och API som Willys). Med e_handel: willys jämförs bara Hemköps butikskampanjer,
   # som ICA. Med e_handel: hemkop blir Hemköp korgen och Willys jämförelse.
@@ -75,11 +75,9 @@ butiker:
   # påverkas inte, men ICA-priser jämförs inte; rapporten säger det med en neutral rad.
   # bara_lokalt: true = hämta inte butiken i GitHub Actions (inga anrop mot ica.se från molnet).
   ica:
-    - namn: ICA Kvantum Trossen
-      erbjudande_slug: ica-kvantum-trossen-16622
+    - namn: ICA Supermarket Exempelstad
+      erbjudande_slug: ica-supermarket-exempelstad-000000
       bara_lokalt: true
-    - namn: ICA Supermarket Vagnhärad
-      erbjudande_slug: ica-supermarket-vagnharad-1004281
 
 optimering:
   # Allt som finns i e-handeln ligger alltid i korgen. Billigare butiksalternativ flaggas i rapporten

@@ -295,7 +295,7 @@ class Planner:
         self.model_meny = model_meny
         self.model_produkter = model_produkter or model_meny
         self.kedja = kedja  # e-handelskedjan (Willys eller Hemköp)
-        self.jamforelse = jamforelse or ()  # andra Axfood-butiker som bara jämförs, t.ex. "Hemköp Trosa"
+        self.jamforelse = jamforelse or ()  # andra Axfood-butiker som bara jämförs, t.ex. "Hemköp Exempelstad"
         self.client = anthropic.Anthropic() if os.environ.get("ANTHROPIC_API_KEY") else None
         self._claude: tuple[str, str] | None = None  # (sökväg, version), loggas vid första anropet
         self.forbrukning: dict[str, Forbrukning] = {}  # steg -> summerad förbrukning

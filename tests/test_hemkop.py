@@ -83,7 +83,7 @@ def test_fel_butik_namnger_kedjan(monkeypatch):
 
 # ---------- Config ----------
 
-W = {"namn": "Willys Test", "store_id": "2341"}
+W = {"namn": "Willys Test", "store_id": "0000"}
 H = {"namn": "Hemköp Test", "store_id": "4127"}
 
 

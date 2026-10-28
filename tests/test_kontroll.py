@@ -15,7 +15,7 @@ from veckohandla.stores import hemkop, ica, willys
 
 CFG = {
     "hushall": {"vuxna": 2, "middagar_per_vecka": 5, "portioner_per_middag": 2, "preferenser": "Gott", "undvik": []},
-    "butiker": {"willys": {"namn": "Willys Test", "store_id": "2341"},
+    "butiker": {"willys": {"namn": "Willys Test", "store_id": "0000"},
                 "ica": [{"namn": "ICA A", "erbjudande_slug": "ica-a"},
                         {"namn": "ICA B", "erbjudande_slug": "ica-b", "bara_lokalt": True}]},
     "epost": {"till": "x@example.com"},
@@ -97,7 +97,7 @@ def test_trasig_yaml(tmp_path):
 # ---------- butiker och kampanjer ----------
 
 def test_e_handelsbutiken(butiker):
-    assert kontroll.e_handelsbutik(CFG).rad() == "✓ Willys-butiken Willys Test (2341) finns"
+    assert kontroll.e_handelsbutik(CFG).rad() == "✓ Willys-butiken Willys Test (0000) finns"
     Session.fel = RuntimeError("Willys valde butik '1'")
     p = kontroll.e_handelsbutik(CFG)
     assert p.status == FEL and "hitta-willys" in p.atgard

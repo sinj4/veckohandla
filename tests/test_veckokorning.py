@@ -17,7 +17,7 @@ from .conftest import fixtur_json
 
 ONSDAG_V42 = dt.date(2026, 10, 14)
 MANDAG_V43 = dt.date(2026, 10, 19)
-CFG = {"butiker": {"willys": {"namn": "W", "store_id": "2341"}, "ica": []}}
+CFG = {"butiker": {"willys": {"namn": "W", "store_id": "0000"}, "ica": []}}
 
 
 def offline_offers():

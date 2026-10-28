@@ -370,7 +370,7 @@ def genitiv(namn: str) -> str:
 
 
 def willys_i_butik_namn(cfg: dict) -> str:
-    """Namnet på e-handelskedjans butikskampanjer, t.ex. 'Willys Vagnhärad (i butik)'."""
+    """Namnet på e-handelskedjans butikskampanjer, t.ex. 'Willys Exempelstad (i butik)'."""
     return f"{e_handel_butik(cfg)['namn']} (i butik)"
 
 

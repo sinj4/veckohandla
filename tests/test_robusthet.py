@@ -6,7 +6,7 @@ from veckohandla import pipeline, report
 from veckohandla.models import Product
 from veckohandla.planner import Inkopsrad, Produktval, Val, Veckoplan
 
-CFG = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "Willys Test", "store_id": "2341"}, "ica": []},
+CFG = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "Willys Test", "store_id": "0000"}, "ica": []},
        "hushall": {"sparrord": []}, "optimering": {"min_besparing_for_delning_kr": 75}}
 
 
@@ -151,7 +151,7 @@ def test_hogst_ett_get_per_produkt_och_korning(data_dir, monkeypatch):
         if p == "/axfood/rest/v2/store/activate":
             return httpx.Response(200, json={})
         if p == "/axfood/rest/v2/store/active":
-            return httpx.Response(200, json={"storeId": "2341"})
+            return httpx.Response(200, json={"storeId": "0000"})
         if p == "/search":
             return httpx.Response(200, json={"results": [
                 {"code": c, "name": f"Vara {c}", "priceValue": 10.0, "online": True} for c in ("A_ST", "B_ST", "C_ST", "D_ST")]})

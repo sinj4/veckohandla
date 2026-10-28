@@ -56,7 +56,7 @@ def _mock_client(monkeypatch, routes: dict[str, dict]):
 
 def test_willys_fetch_offers(monkeypatch):
     _mock_client(monkeypatch, {"/search/campaigns/online": fixtur_json("willys_campaigns_online.json")})
-    offers = willys.fetch_offers("2341", "Willys Test")
+    offers = willys.fetch_offers("0000", "Willys Test")
     assert len(offers) == 3
     assert {o.store for o in offers} == {"Willys Test"}
     assert offers[1].category.startswith("halsa-och-skonhet")

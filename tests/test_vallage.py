@@ -13,7 +13,7 @@ from veckohandla.models import Offer, Product
 from veckohandla.planner import Ingrediens, Inkopslista, Inkopsrad, Produktval, Ratt, Val, Veckoforslag, Veckoplan
 
 VECKA = "2026-v43"
-CFG = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "Willys Test", "store_id": "2341"}, "ica": []},
+CFG = {"claude": {"model": "x"}, "butiker": {"willys": {"namn": "Willys Test", "store_id": "0000"}, "ica": []},
        "hushall": {"middagar_per_vecka": 3, "portioner_per_middag": 4, "sparrord": []},
        "optimering": {}, "meny": {"lage": "val", "forslag": 4}}
 

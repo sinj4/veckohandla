@@ -11,7 +11,7 @@ from veckohandla.stores import willys
 
 from .conftest import fixtur_json
 
-CFG = {"butiker": {"willys": {"namn": "Willys Test", "store_id": "2341"}, "ica": []},
+CFG = {"butiker": {"willys": {"namn": "Willys Test", "store_id": "0000"}, "ica": []},
        "optimering": {"min_besparing_for_delning_kr": 75}}
 
 

@@ -60,7 +60,7 @@ def test_config_med_alla_svar_och_kommentarerna_kvar():
                       "lage: val        # auto = färdig meny"):
         assert kommentar in text
     # Exemplets Willys-butik och ICA-butiker följer inte med
-    assert '"2341"' not in text and "ica-kvantum-trossen" not in text
+    assert '"0000"' not in text and "Exempelstad" not in text and "ica-supermarket-exempelstad" not in text
 
 
 def test_minimal_config_ar_giltig_for_kontrollen(tmp_path):
@@ -95,7 +95,7 @@ def test_ica_slug(text, slug):
 
 
 def test_ica_namn():
-    assert installera.ica_namn("ica-supermarket-vagnharad-1004281") == "ICA Supermarket Vagnharad"
+    assert installera.ica_namn("ica-supermarket-exempelstad-000000") == "ICA Supermarket Exempelstad"
 
 
 # ---------- interaktivt ----------

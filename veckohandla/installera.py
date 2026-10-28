@@ -133,7 +133,7 @@ def ica_slug(text: str) -> str:
 
 
 def ica_namn(slug: str) -> str:
-    """'ica-supermarket-vagnharad-1004281' -> 'ICA Supermarket Vagnharad' (förslag; å/ä/ö saknas i sluggen)."""
+    """'ica-supermarket-exempelstad-000000' -> 'ICA Supermarket Exempelstad' (förslag; å/ä/ö saknas i sluggen)."""
     ord_ = [o for o in slug.split("-") if o and not o.isdigit()]
     return " ".join(o.upper() if o == "ica" else o.capitalize() for o in ord_) or slug
 
@@ -219,7 +219,7 @@ def fraga_butik(f: Fragor, sok: Callable[[str], list[Butik]] = hitta_butiker) ->
                 " eller skriv butikens id direkt (finns i adressen på butikens sida).")
         if f.ja("Ange butiks-id själv?", False):
             kedja = ("willys", "hemkop")[f.val("Kedja", ["Willys", "Hemköp"])]
-            store_id = f.text("Butikens id (t.ex. 2341)")
+            store_id = f.text("Butikens id (t.ex. 1234)")
             return Butik(kedja, store_id, f.text("Butikens namn", f"{'Willys' if kedja == 'willys' else 'Hemköp'} {store_id}"))
 
 
