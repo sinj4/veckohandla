@@ -16,7 +16,7 @@ import httpx
 from .models import Offer, Product
 from .planner import (Inkopsrad, Middag, Planner, Val, Veckoforslag, Veckoplan, forbrukning_text, gar_alltid_at_rad,
                       matlador, matlador_for)
-from . import betyg, ingredienser, lager, priser
+from . import betyg, ingredienser, lager, mobil, priser
 from .stores import hemkop, ica, willys
 from .stores.axfood import AxfoodSession
 
@@ -100,6 +100,7 @@ class Result:
     kostnad: dict | None = None  # Claude-förbrukning per steg och totalt (se spara_forbrukning)
     prismarkerade: list[Offer] = field(default_factory=list)  # kampanjer med "bra pris"/"vanligt pris"
     matlador: dict[str, int] = field(default_factory=dict)  # dag -> extra portioner till matlådor
+    mobillank: str | None = None  # korgen som #veckohandla=-länk för bokmärket (mobil.py)
 
 
 def week_id(today: dt.date | None = None) -> str:
@@ -701,6 +702,7 @@ def _handla(
     DATA.mkdir(exist_ok=True)
     (DATA / f"{result.week}.json").write_text(plan.model_dump_json(indent=2))
     (DATA / f"{result.week}-korg.json").write_text(json.dumps(cart_lines, ensure_ascii=False, indent=2))
+    result.mobillank = spara_mobillank(result.week, cart_lines, kedja.KEDJA, log)
     result.kostnad = spara_forbrukning(result.week, planner, "veckomeny", log)
 
     if fill_cart:
@@ -716,6 +718,17 @@ def _handla(
                 f"`python -m veckohandla fyll-varukorg {result.week}`."
             )
     return result
+
+
+def spara_mobillank(week: str, korg: list[dict], kedja, log=print) -> str | None:
+    """Korglänken för bokmärket, sparad i data/<vecka>-mobillank.json så att mobilsidan kan visa den."""
+    try:
+        lank = mobil.korg_lank(korg, kedja.nyckel, kedja.base)
+    except mobil.ForLangLank as e:
+        log(f"  Ingen mobillänk: {e}")
+        return None
+    (DATA / f"{week}-mobillank.json").write_text(json.dumps({"kedja": kedja.nyckel, "lank": lank}, ensure_ascii=False))
+    return lank
 
 
 def spara_forbrukning(week: str, planner: Planner, korning: str, log=print) -> dict | None:

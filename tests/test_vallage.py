@@ -175,6 +175,9 @@ def test_valj_gar_genom_gemensamma_flodet(miljo, monkeypatch):
     assert [m["ratt"] for m in plan["middagar"]] == ["Tacos", "Lax"]  # bara de valda rätterna
     korg = json.loads((miljo / f"{VECKA}-korg.json").read_text())
     assert [r["code"] for r in korg] == ["tacos_ST", "lax_ST"]
+    # Korgen som mobillänk för bokmärket, sparad så att mobilsidan kan visa den
+    assert res.mobillank.startswith("https://www.willys.se/#veckohandla=")
+    assert json.loads((miljo / f"{VECKA}-mobillank.json").read_text())["lank"] == res.mobillank
 
 
 def test_valj_varnar_om_forslagen_ar_fran_en_annan_vecka(miljo):

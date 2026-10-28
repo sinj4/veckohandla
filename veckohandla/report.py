@@ -85,6 +85,20 @@ def _prislista(markerade: list) -> str:
             f"{len(markerade) - len(bra)} med vanligt pris.{lista}</div>")
 
 
+BOKMARKE_HJALP = "https://github.com/sinj4/veckohandla#fyll-korgen-på-mobilen"
+
+
+def _knapp(href: str, text: str, farg: str = "#2a7a2a") -> str:
+    return (f"<a href='{html.escape(href)}' style='display:inline-block;background:{farg};color:#fff;padding:12px 18px;"
+            f"border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px'>{html.escape(text)}</a>")
+
+
+def _mobilknapp(lank: str) -> str:
+    return (f"<p>{_knapp(lank, '📱 Fyll korgen på mobilen')}<br><small style='color:#666'>Kräver bokmärket eller "
+            f"iPhone-genvägen Veckohandla, och att du är inloggad i mobilens webbläsare "
+            f"(<a href='{BOKMARKE_HJALP}'>så installerar du dem</a>).</small></p>")
+
+
 def _varningar(varningar: list[str]) -> list[str]:
     """Varningar i gul ruta; neutrala notiser (t.ex. att ICA jämförs på datorn) som grå rad, en gång var."""
     e = html.escape
@@ -151,6 +165,8 @@ def render(res: Result) -> str:
             "🛒 <b>Varukorgen är inte fylld än.</b> Kör "
             f"<code>{e(fyll_kommando(res.week))}</code> på datorn där du är inloggad på {e(res.kedja)}.</p>"
         )
+    if res.cart is None and res.mobillank:
+        parts.append(_mobilknapp(res.mobillank))
     parts += [
         f"<p>{e(res.plan.kommentar)}</p>",
         "<p style='color:#666;font-size:13px'>Kampanjer skannade: "
