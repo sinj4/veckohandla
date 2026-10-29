@@ -1,8 +1,22 @@
 # Veckohandla 🛒
 
+[![Tester](https://github.com/sinj4/veckohandla/actions/workflows/tester.yml/badge.svg)](https://github.com/sinj4/veckohandla/actions/workflows/tester.yml)
+
 Veckohandla är en bot som planerar veckans middagar utifrån butikernas veckokampanjer. Den fyller din varukorg på Willys och mejlar dig meny, recept och inköpslista.
 
 *A bot that plans the week's dinners from Swedish grocery store deals (Willys, ICA), fills your Willys online cart and emails you the menu. Swedish-language project.*
+
+## Tekniska val
+
+Boten körs obevakad varje måndag morgon och rör mitt riktiga Willys-konto. Därför är den byggd för att hellre stanna än göra fel.
+
+- **Den lägger aldrig en order.** Den fyller bara korgen, och bara med det som fattas. Körs den två gånger blir resultatet detsamma.
+- **Claudes svar valideras mot strikta scheman** (Pydantic) innan något används. Ett svar som inte följer schemat stoppar körningen.
+- **Matkraven ligger i koden, inte bara i prompten.** Spärrorden filtrerar bort produkter innan Claude ser dem, och ingredienslistan kontrolleras igen efter valet. En AI-modell som missar något ska inte kunna lägga fläsk i korgen.
+- **Exit-koder för schemaläggning.** Kod 3 betyder att veckans kampanjer inte är uppe än, så schemat kan försöka igen senare. Kod 4 betyder att mejlet inte kom fram. Andra fel skickar ett felmejl.
+- **Ingen hemlighet i repot.** API-nyckel och SMTP-lösenord ligger i `.env`, och den inloggade webbläsarprofilen i `browser-profiles/`. Båda ignoreras av git.
+- **163 tester som körs utan nätverk.** `conftest.py` blockerar alla socket-anrop, och Willys- och ICA-svar kommer från sparade fixturer. Testerna körs i GitHub Actions på Python 3.11 och 3.12.
+- **Tillgänglighet cachas aldrig**, eftersom en vara som tagit slut i butiken måste upptäckas samma dag. Ingredienslistor cachas i 30 dagar, för de ändras sällan.
 
 ## Vad den gör
 
